@@ -1,0 +1,1 @@
+Add screenshots after running the improved UI locally for GitHub README preview images.

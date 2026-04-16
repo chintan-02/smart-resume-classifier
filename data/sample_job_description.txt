@@ -1,0 +1,1 @@
+We are hiring a Junior Data Scientist with strong foundations in Python, pandas, NumPy, scikit-learn, SQL, statistics, machine learning, model evaluation, feature engineering, data visualization, and Streamlit. Experience with Git, GitHub, dashboards, problem solving, and communication is preferred. Knowledge of NLP, TensorFlow, and cloud deployment is a plus.

@@ -1,0 +1,46 @@
+python
+pandas
+numpy
+scikit-learn
+machine learning
+deep learning
+tensorflow
+keras
+pytorch
+sql
+excel
+power bi
+tableau
+statistics
+nlp
+spacy
+nltk
+transformer
+logistic regression
+data analysis
+data visualization
+feature engineering
+classification
+regression
+streamlit
+html
+css
+javascript
+react
+node.js
+rest api
+java
+spring boot
+docker
+kubernetes
+aws
+terraform
+linux
+selenium
+testing
+c++
+r
+firebase
+git
+github
+jupyter
