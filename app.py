@@ -33,12 +33,16 @@ def inject_css() -> None:
     st.markdown(
         """
         <style>
+        /* Keep the header present so the sidebar reopen arrow can appear */
         header[data-testid="stHeader"] {
-            display: none;
+            background: transparent !important;
         }
 
+        /* Keep sidebar toggle visible */
         [data-testid="collapsedControl"] {
-            display: none;
+            display: flex !important;
+            opacity: 1 !important;
+            visibility: visible !important;
         }
 
         .stApp {
