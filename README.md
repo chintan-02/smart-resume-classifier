@@ -1,29 +1,101 @@
-# Smart Resume Classifier + Skill Extractor
+# 🚀 Smart Resume Classifier & Skill Extractor
 
-A polished beginner-friendly NLP + ML project that classifies resumes into job roles, extracts skills, compares a resume against a job description, and highlights missing skills in a clean Streamlit dashboard.
+<p align="center">
+  <b>End-to-End NLP + Machine Learning Project with Deployment</b><br>
+  Classify resumes, extract skills, match job descriptions, and identify skill gaps — all in a modern dashboard.
+</p>
 
-## What is new in this version
+---
 
-- Upgraded UI with a polished dark dashboard layout
-- Better analysis flow with tabs, cards, and role-confidence chart
-- Azure-ready deployment files included
-- Local setup instructions updated to avoid virtual-environment path issues
-- Jupyter notebook retained for learning and assignment submission
+## 🌐 Live Demo
 
-## Features
+👉 **Try the App:**
+🔗 https://resume-classifier-chintan.azurewebsites.net
 
-- Upload resume in **PDF** or **TXT**
-- Extract text from resume
-- Predict job role using **TF-IDF + Logistic Regression**
-- Extract skills using keyword matching
-- Compare resume with job description
-- Compute **match score**
-- Show **missing skills**, matched skills, and extra skills
-- Includes **Jupyter Notebook** for explanation and **Streamlit app** for demo/deployment
+---
 
-## Project Structure
+## 👨‍💻 Author
 
-```bash
+**Chintan Patel**
+🔗 GitHub: https://github.com/chintan-02
+💼 LinkedIn: https://www.linkedin.com/in/chintan-patel-987765129/
+
+---
+
+## 📌 Project Overview
+
+Recruiters spend significant time manually screening resumes.
+
+👉 This project solves that problem by building an **AI-powered system** that:
+
+* Classifies resumes into job roles
+* Extracts relevant technical skills
+* Compares resumes with job descriptions
+* Identifies missing skills (**Skill Gap Analysis**)
+
+All presented through a **clean, interactive dashboard UI**.
+
+---
+
+## ✨ Key Features
+
+✅ Upload Resume (**PDF / TXT**)
+✅ Automatic Text Extraction (NLP)
+✅ Job Role Prediction (ML Model)
+✅ Skill Extraction Engine
+✅ Resume vs Job Description Matching
+✅ Match Score Calculation
+✅ Skill Gap Analysis (Missing Skills)
+✅ Interactive Dashboard UI (Streamlit)
+
+---
+
+## 🧠 Tech Stack
+
+| Category            | Tools                        |
+| ------------------- | ---------------------------- |
+| Language            | Python                       |
+| Data Processing     | Pandas, NumPy                |
+| NLP                 | NLTK / spaCy                 |
+| Machine Learning    | scikit-learn                 |
+| Feature Engineering | TF-IDF                       |
+| Model               | Logistic Regression          |
+| Deployment          | Streamlit, Azure App Service |
+| Others              | pypdf                        |
+
+---
+
+## 🏗️ Project Architecture
+
+```
+Resume → Text Extraction → NLP Processing → TF-IDF → ML Model → Predictions
+                                               ↓
+                                   Skill Extraction Engine
+                                               ↓
+                              JD Matching + Skill Gap Analysis
+```
+
+---
+
+## 📊 Screenshots
+
+### 🖥️ Dashboard UI
+
+![Dashboard](assets/app_screenshot.png)
+
+### 📊 Prediction Output
+
+![Prediction](assets/prediction_output.png)
+
+### 🎯 Skill Gap Analysis
+
+![Skill Gap](assets/skill_gap_analysis.png)
+
+---
+
+## 📁 Project Structure
+
+```
 smart-resume-classifier-skill-extractor/
 │
 ├── app.py
@@ -31,107 +103,117 @@ smart-resume-classifier-skill-extractor/
 ├── utils.py
 ├── requirements.txt
 ├── README.md
-├── runtime.txt
-├── LICENSE
-├── .gitignore
 │
 ├── artifacts/
-│   ├── resume_classifier.pkl
-│   └── metrics.json
-│
-├── assets/
-│   └── dashboard_preview.txt
-│
 ├── data/
-│   ├── resume_dataset.csv
-│   ├── sample_job_description.txt
-│   └── skills_list.txt
-│
 ├── deployment/
-│   ├── startup.sh
-│   ├── azure_deploy_guide.md
-│   └── Dockerfile
-│
 ├── notebooks/
-│   └── Resume_Classifier_Project.ipynb
-│
 └── .streamlit/
-    └── config.toml
 ```
 
-## Tech Stack
+---
 
-- Python
-- Pandas
-- NumPy
-- scikit-learn
-- pypdf
-- Streamlit
-- Jupyter Notebook
+## ⚙️ How It Works
 
-## Run Locally
+1. Upload resume
+2. Extract text from PDF/TXT
+3. Clean & preprocess text
+4. Convert text → TF-IDF features
+5. Predict job role using ML model
+6. Extract skills using keyword matching
+7. Compare with job description
+8. Generate:
+
+   * Match Score
+   * Matched Skills
+   * Missing Skills
+
+---
+
+## 💻 Run Locally
 
 ```bash
-cd smart-resume-classifier-skill-extractor
+git clone https://github.com/chintan-02/smart-resume-classifier
+cd smart-resume-classifier
+
 python3.11 -m venv venv
 source venv/bin/activate
+
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
+
 python -m streamlit run app.py
 ```
 
-Open in your browser:
+👉 Open:
 
-```text
+```
 http://localhost:8501
 ```
 
-## Retrain the Model
+---
+
+## 🔁 Retrain Model
 
 ```bash
 python train.py
 ```
 
-## Open the Notebook
+---
+
+## 📓 Notebook (For Learning)
 
 ```bash
 jupyter notebook
 ```
 
-Then open:
+Open:
 
-```text
+```
 notebooks/Resume_Classifier_Project.ipynb
 ```
 
-## Azure Deployment Files Included
+---
 
-The `deployment/` folder includes:
+## ☁️ Deployment (Azure)
 
-- `startup.sh` → runs Streamlit on `0.0.0.0:8000`
-- `azure_deploy_guide.md` → step-by-step Azure App Service deployment
-- `Dockerfile` → optional container deployment path for Azure
+This project is deployed using **Azure App Service**.
 
-## GitHub Upload Steps
+Deployment includes:
 
-```bash
-git init
-git add .
-git commit -m "Initial commit - Smart Resume Classifier project"
-git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/smart-resume-classifier-skill-extractor.git
-git push -u origin main
-```
+* GitHub CI/CD integration
+* Custom startup command
+* Environment configuration
 
-## Presentation Flow
+---
 
-- Problem: recruiters spend time screening resumes manually
-- Solution: automate role prediction and skill extraction
-- NLP: cleaning, TF-IDF features, keyword-based skills
-- ML: Logistic Regression classifier
-- Output: predicted role, extracted skills, JD match score, missing skills
-- Deployment: Streamlit locally, Azure App Service in the cloud
+## 🚀 Future Improvements
 
-## Notes
+* Deep Learning (BERT / Transformers)
+* Advanced NER for skill extraction
+* Multi-language resume support
+* Resume ranking system
+* Recruiter dashboard with analytics
 
-This project uses a small educational sample dataset so the repo runs immediately. For a stronger portfolio version, replace `data/resume_dataset.csv` with a larger public resume dataset and retrain the model.
+---
+
+## 📈 Why This Project Stands Out
+
+✔ End-to-end ML pipeline
+✔ Real-world use case
+✔ Deployment on cloud (Azure)
+✔ Clean UI/UX
+✔ Business impact focused
+
+---
+
+## ⭐ Final Note
+
+This project uses a **sample dataset for demonstration**.
+For production-level performance, integrate a larger dataset and advanced NLP models.
+
+---
+
+<p align="center">
+  ⭐ If you like this project, give it a star on GitHub!
+</p>

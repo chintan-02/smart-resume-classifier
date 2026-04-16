@@ -33,90 +33,225 @@ def inject_css() -> None:
     st.markdown(
         """
         <style>
+        header[data-testid="stHeader"] {
+            display: none;
+        }
+
+        [data-testid="collapsedControl"] {
+            display: none;
+        }
+
         .stApp {
-            background: linear-gradient(180deg, #0b1020 0%, #121a31 55%, #0b1020 100%);
+            background:
+                radial-gradient(circle at top left, rgba(99,102,241,0.16), transparent 28%),
+                radial-gradient(circle at top right, rgba(16,185,129,0.12), transparent 24%),
+                linear-gradient(180deg, #07111f 0%, #0a1326 45%, #07111f 100%);
         }
+
         .block-container {
-            padding-top: 1.8rem;
-            padding-bottom: 2.5rem;
-            max-width: 1200px;
+            padding-top: 1.05rem !important;
+            padding-bottom: 2.4rem;
+            padding-left: 2rem;
+            padding-right: 2rem;
+            max-width: 1260px;
         }
+
+        [data-testid="stAppViewContainer"] {
+            padding-top: 0rem !important;
+            margin-top: 0rem !important;
+        }
+
+        section[data-testid="stSidebar"] > div {
+            padding-top: 1.2rem !important;
+            background: linear-gradient(180deg, rgba(9,15,27,0.97), rgba(16,24,39,0.96));
+        }
+
         .hero {
-            background: linear-gradient(135deg, rgba(99,102,241,0.20), rgba(16,185,129,0.16));
-            border: 1px solid rgba(255,255,255,0.10);
-            padding: 1.4rem 1.4rem 1.1rem 1.4rem;
-            border-radius: 24px;
-            margin-bottom: 1rem;
-            box-shadow: 0 12px 35px rgba(0,0,0,0.18);
+            background: linear-gradient(135deg, rgba(79,70,229,0.24), rgba(16,185,129,0.17));
+            border: 1px solid rgba(255,255,255,0.09);
+            padding: 1.8rem 1.8rem 1.4rem 1.8rem;
+            border-radius: 28px;
+            box-shadow: 0 18px 45px rgba(0,0,0,0.28);
+            margin-bottom: 1.35rem;
         }
-        .hero h1 {
+
+        .hero-badge {
+            display: inline-block;
+            padding: 0.36rem 0.78rem;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.12);
+            color: #dbeafe;
+            font-size: 0.82rem;
+            font-weight: 600;
+            margin-bottom: 0.9rem;
+        }
+
+        .hero-title {
             margin: 0;
-            font-size: 2.1rem;
             color: #f8fafc;
-            letter-spacing: -0.02em;
+            font-size: 2.45rem;
+            line-height: 1.1;
+            font-weight: 800;
+            letter-spacing: -0.03em;
         }
-        .hero p {
+
+        .hero-subtitle {
             color: #dbe4ff;
-            margin-top: 0.45rem;
-            margin-bottom: 0.2rem;
-            font-size: 1rem;
+            font-size: 1.02rem;
+            line-height: 1.7;
+            margin-top: 0.8rem;
+            margin-bottom: 1.1rem;
+            max-width: 950px;
         }
-        .glass-card {
+
+        .hero-chip-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.55rem;
+        }
+
+        .hero-chip {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #eef2ff;
+            padding: 0.45rem 0.8rem;
+            border-radius: 999px;
+            font-size: 0.84rem;
+        }
+
+        .panel-card {
             background: rgba(255,255,255,0.045);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 22px;
+            padding: 1.15rem 1.15rem 1rem 1.15rem;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.18);
+            margin-bottom: 1rem;
+        }
+
+        .metric-card {
+            background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.04));
             border: 1px solid rgba(255,255,255,0.08);
             border-radius: 20px;
             padding: 1rem 1rem 0.95rem 1rem;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-            margin-bottom: 0.9rem;
+            min-height: 125px;
+            box-shadow: 0 10px 24px rgba(0,0,0,0.14);
         }
-        .metric-card {
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 18px;
-            padding: 0.95rem 1rem;
-            min-height: 120px;
-        }
+
         .metric-label {
             color: #b8c1d9;
-            font-size: 0.88rem;
-            margin-bottom: 0.4rem;
+            font-size: 0.85rem;
+            margin-bottom: 0.45rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
         }
+
         .metric-value {
             color: #ffffff;
-            font-size: 1.7rem;
-            font-weight: 700;
+            font-size: 1.75rem;
+            font-weight: 800;
             line-height: 1.1;
         }
+
         .metric-subtext {
-            color: #a7f3d0;
-            font-size: 0.88rem;
-            margin-top: 0.35rem;
+            color: #93c5fd;
+            font-size: 0.86rem;
+            margin-top: 0.45rem;
         }
-        .section-title {
+
+        .section-label {
             color: #f8fafc;
-            font-size: 1.05rem;
-            margin-bottom: 0.65rem;
-            font-weight: 600;
+            font-size: 1.08rem;
+            margin-bottom: 0.7rem;
+            font-weight: 700;
         }
+
+        .minor-label {
+            color: #e5e7eb;
+            font-size: 0.96rem;
+            font-weight: 600;
+            margin-bottom: 0.35rem;
+        }
+
+        .subtle {
+            color: #b8c1d9;
+            font-size: 0.93rem;
+            line-height: 1.75;
+        }
+
         .skill-pill {
             display: inline-block;
-            padding: 0.34rem 0.68rem;
+            padding: 0.36rem 0.72rem;
             border-radius: 999px;
-            margin: 0.18rem 0.25rem 0.18rem 0;
+            margin: 0.18rem 0.26rem 0.18rem 0;
             background: rgba(99,102,241,0.18);
             border: 1px solid rgba(129,140,248,0.35);
             color: #eef2ff;
-            font-size: 0.88rem;
+            font-size: 0.86rem;
         }
-        .pill-green { background: rgba(16,185,129,0.18); border-color: rgba(52,211,153,0.45); }
-        .pill-red { background: rgba(239,68,68,0.14); border-color: rgba(248,113,113,0.35); }
-        .pill-slate { background: rgba(148,163,184,0.12); border-color: rgba(148,163,184,0.25); }
-        .subtle {
-            color: #b8c1d9;
-            font-size: 0.92rem;
+
+        .pill-green {
+            background: rgba(16,185,129,0.18);
+            border-color: rgba(52,211,153,0.45);
         }
+
+        .pill-red {
+            background: rgba(239,68,68,0.14);
+            border-color: rgba(248,113,113,0.35);
+        }
+
+        .pill-slate {
+            background: rgba(148,163,184,0.12);
+            border-color: rgba(148,163,184,0.25);
+        }
+
+        [data-testid="stFileUploader"] {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 18px;
+            padding: 0.7rem;
+        }
+
+        [data-testid="stTextArea"] textarea {
+            background: rgba(255,255,255,0.04) !important;
+            color: #f8fafc !important;
+            border: 1px solid rgba(255,255,255,0.08) !important;
+            border-radius: 18px !important;
+        }
+
         .stTextArea textarea, .stTextInput input {
-            border-radius: 14px !important;
+            border-radius: 16px !important;
+        }
+
+        div[data-testid="stMetric"] {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 18px;
+            padding: 0.8rem;
+        }
+
+        hr {
+            margin-top: 0.7rem !important;
+            margin-bottom: 0.7rem !important;
+            border: none !important;
+            height: 0 !important;
+        }
+
+        .insight-box {
+            background: rgba(255,255,255,0.045);
+            border-left: 4px solid rgba(96,165,250,0.8);
+            padding: 0.95rem 1rem;
+            border-radius: 14px;
+            color: #dbeafe;
+            margin-top: 0.65rem;
+            margin-bottom: 0.8rem;
+            line-height: 1.65;
+        }
+
+        .footer-note {
+            color: #94a3b8;
+            font-size: 0.88rem;
+            margin-top: 1.1rem;
         }
         </style>
         """,
@@ -147,25 +282,28 @@ def load_sample_jd() -> str:
     return SAMPLE_JD_PATH.read_text(encoding="utf-8") if SAMPLE_JD_PATH.exists() else ""
 
 
-model = load_model()
-skills_list = get_skills()
-metrics = get_metrics()
-
-
 def render_hero():
     st.markdown(
         """
         <div class="hero">
-            <h1>📄 Smart Resume Classifier + Skill Extractor</h1>
-            <p>
-                A polished end-to-end NLP + ML project that predicts likely job roles, extracts skills,
-                compares a resume with a job description, and highlights missing skills in one dashboard.
-            </p>
+            <div class="hero-badge">Portfolio Project • NLP + ML + Dashboard UI</div>
+            <div class="hero-title">📄 Smart Resume Classifier + Skill Extractor</div>
+            <div class="hero-subtitle">
+                An end-to-end resume intelligence dashboard that predicts likely job roles,
+                extracts technical skills, compares resume content with a target job description,
+                and highlights skill gaps for interview and application readiness.
+            </div>
+            <div class="hero-chip-row">
+                <div class="hero-chip">Resume Classification</div>
+                <div class="hero-chip">Skill Extraction</div>
+                <div class="hero-chip">Job Matching</div>
+                <div class="hero-chip">Gap Analysis</div>
+                <div class="hero-chip">Azure Deployable</div>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
-
 
 
 def file_to_text(file) -> str:
@@ -175,7 +313,6 @@ def file_to_text(file) -> str:
     if suffix == ".txt":
         return extract_text_from_txt(file)
     return ""
-
 
 
 def styled_metric(label: str, value: str, subtext: str = "") -> None:
@@ -191,7 +328,6 @@ def styled_metric(label: str, value: str, subtext: str = "") -> None:
     )
 
 
-
 def pill_group(items, tone="default"):
     if not items:
         return '<span class="subtle">None</span>'
@@ -201,7 +337,6 @@ def pill_group(items, tone="default"):
         "slate": "pill-slate",
     }.get(tone, "")
     return "".join([f'<span class="skill-pill {tone_class}">{item}</span>' for item in items])
-
 
 
 def get_top_predictions(text: str, top_n: int = 5) -> pd.DataFrame:
@@ -214,113 +349,229 @@ def get_top_predictions(text: str, top_n: int = 5) -> pd.DataFrame:
     return pd.DataFrame()
 
 
+def build_summary_insight(predicted_role, match_score, matched_count, missing_count):
+    if match_score >= 0.65:
+        fit = "strong"
+    elif match_score >= 0.35:
+        fit = "moderate"
+    else:
+        fit = "limited"
+
+    return (
+        f"This resume is currently classified as **{predicted_role}** and shows a **{fit} fit** "
+        f"for the provided job description. It matches **{matched_count}** relevant skills "
+        f"while missing **{missing_count}** target skills."
+    )
+
+
 inject_css()
+
+model = load_model()
+skills_list = get_skills()
+metrics = get_metrics()
+
 render_hero()
 
 with st.sidebar:
     st.markdown("### Project Controls")
     use_sample_jd = st.toggle("Use sample ML/Data Science JD", value=False)
+
     st.markdown("---")
     st.markdown("### Model Snapshot")
     accuracy = metrics.get("accuracy", 0)
     st.metric("Validation accuracy", f"{accuracy:.2%}")
+
     classes = metrics.get("report", {}).keys()
     clean_classes = [c for c in classes if c not in {"accuracy", "macro avg", "weighted avg"}]
     st.caption(f"Supported roles: {', '.join(clean_classes[:10])}")
+
+    st.markdown("---")
+    st.markdown("### Why this project stands out")
+    st.markdown(
+        """
+        <div class="subtle">
+        • End-to-end NLP + ML workflow<br>
+        • Recruiter-friendly use case<br>
+        • Portfolio-quality dashboard UI<br>
+        • Deployment-ready for Azure
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     st.markdown("---")
     st.markdown("### Local Run")
     st.code("python -m streamlit run app.py", language="bash")
-    st.caption("Use `python -m streamlit` so Streamlit runs inside your venv.")
 
-left, right = st.columns([1.15, 0.85], gap="large")
+top_left, top_right = st.columns([1.18, 0.82], gap="large")
 
-with left:
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">1) Upload Resume</div>', unsafe_allow_html=True)
-    uploaded_file = st.file_uploader("Upload a resume in PDF or TXT format", type=["pdf", "txt"], label_visibility="collapsed")
-    st.caption("Best results come from text-based PDFs, not scanned images.")
+with top_left:
+    st.markdown('<div class="panel-card">', unsafe_allow_html=True)
+    st.markdown('<div class="section-label">1) Upload Resume</div>', unsafe_allow_html=True)
+    uploaded_file = st.file_uploader(
+        "Upload a resume in PDF or TXT format",
+        type=["pdf", "txt"],
+        label_visibility="collapsed",
+    )
+    st.caption("Best results come from text-based PDFs rather than scanned-image PDFs.")
     st.markdown("</div>", unsafe_allow_html=True)
 
     default_jd = load_sample_jd() if use_sample_jd else ""
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">2) Paste Job Description</div>', unsafe_allow_html=True)
+    st.markdown('<div class="panel-card">', unsafe_allow_html=True)
+    st.markdown('<div class="section-label">2) Paste Job Description</div>', unsafe_allow_html=True)
     job_description = st.text_area(
         "Paste job description",
         value=default_jd,
-        height=210,
+        height=240,
         label_visibility="collapsed",
         placeholder="Paste a Data Scientist / ML Engineer / Analyst job description here...",
     )
     st.markdown("</div>", unsafe_allow_html=True)
 
-with right:
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">What this app does</div>', unsafe_allow_html=True)
+with top_right:
     st.markdown(
         """
-        <div class="subtle">
-        • Predicts the most likely job role from resume text<br>
-        • Extracts skills using a predefined skill dictionary<br>
-        • Compares resume skills vs job description skills<br>
-        • Highlights missing skills for quick gap analysis
+        <div class="panel-card">
+            <div class="section-label">Dashboard Overview</div>
+            <div class="subtle">
+                This tool simulates a recruiter-assist workflow:
+                it reads resume content, predicts the most likely role,
+                extracts candidate skills, compares them against a target job,
+                and surfaces missing skills for faster decision-making.
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
-    st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">Suggested demo flow</div>', unsafe_allow_html=True)
     st.markdown(
         """
-        <div class="subtle">
-        1. Upload a resume<br>
-        2. Paste a target job description<br>
-        3. Show the predicted role<br>
-        4. Explain matched vs missing skills<br>
-        5. Discuss how recruiters could use the tool
+        <div class="panel-card">
+            <div class="section-label">Suggested Demo Flow</div>
+            <div class="subtle">
+                1. Upload a resume<br>
+                2. Paste a target job description<br>
+                3. Review predicted role and confidence<br>
+                4. Examine skill match and missing skills<br>
+                5. Explain how this supports hiring or candidate preparation
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
-    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown(
+        """
+        <div class="panel-card">
+            <div class="section-label">Tech Stack</div>
+            <div class="subtle">
+                Python • Streamlit • scikit-learn • pandas • pypdf • Azure Deployment
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 if uploaded_file is None:
-    st.info("Upload a resume to generate predictions, extracted skills, and skill gap analysis.")
+    st.info("Upload a resume to unlock the full dashboard: prediction, confidence, skills, match score, and insights.")
 else:
     resume_text = file_to_text(uploaded_file)
     resume_clean = clean_text(resume_text)
 
     if not resume_clean.strip():
-        st.error("Could not extract readable text from the uploaded file. Try a text-based PDF or a TXT file.")
+        st.error("Could not extract readable text from the uploaded file. Please try a text-based PDF or TXT file.")
     else:
         predicted_role = model.predict([resume_clean])[0]
         top_predictions = get_top_predictions(resume_clean)
         confidence_display = "N/A"
+
         if not top_predictions.empty:
             confidence_display = f"{top_predictions.iloc[0]['Confidence %']:.2f}%"
+
         resume_skills = extract_skills(resume_clean, skills_list)
 
         jd_clean = clean_text(job_description) if job_description.strip() else ""
         jd_skills = extract_skills(jd_clean, skills_list) if jd_clean else []
         match_score = jaccard_similarity(resume_skills, jd_skills) if jd_skills else 0.0
-        gap = skill_gap_analysis(resume_skills, jd_skills) if jd_skills else {"matched": [], "missing": [], "extra": sorted(resume_skills)}
+        gap = (
+            skill_gap_analysis(resume_skills, jd_skills)
+            if jd_skills
+            else {"matched": [], "missing": [], "extra": sorted(resume_skills)}
+        )
+
+        matched_count = len(gap["matched"])
+        missing_count = len(gap["missing"])
+        extra_count = len(gap["extra"])
 
         m1, m2, m3, m4 = st.columns(4, gap="medium")
         with m1:
             styled_metric("Predicted Role", predicted_role, "Top classification output")
         with m2:
-            styled_metric("Model Confidence", confidence_display, "From class probabilities")
+            styled_metric("Model Confidence", confidence_display, "Highest class probability")
         with m3:
-            styled_metric("Extracted Skills", str(len(resume_skills)), "Skills found in the resume")
+            styled_metric("Resume Skills", str(len(resume_skills)), "Skills extracted from resume")
         with m4:
-            styled_metric("JD Match Score", f"{match_score:.2%}", "Overlap between resume and JD skills")
+            styled_metric("JD Match Score", f"{match_score:.2%}", "Overlap with target job skills")
 
-        tab1, tab2, tab3, tab4 = st.tabs(["Analysis Dashboard", "Skills Breakdown", "Resume Preview", "Model Details"])
+        st.markdown(
+            f"""
+            <div class="insight-box">
+                {build_summary_insight(predicted_role, match_score, matched_count, missing_count)}
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(
+            ["Executive Summary", "Prediction Analytics", "Skills Intelligence", "Resume Preview", "Model Details"]
+        )
 
         with tab1:
-            col_a, col_b = st.columns([0.95, 1.05], gap="large")
-            with col_a:
+            a, b = st.columns([1.1, 0.9], gap="large")
+
+            with a:
+                st.markdown("#### Candidate fit summary")
+                st.write(
+                    f"""
+                    This resume appears most aligned with **{predicted_role}**.
+                    The dashboard suggests a **{match_score:.2%}** skill overlap against the target job description.
+                    """
+                )
+
+                st.markdown("#### Key highlights")
+                st.markdown(
+                    f"""
+                    - **Matched skills:** {matched_count}  
+                    - **Missing skills:** {missing_count}  
+                    - **Extra resume skills:** {extra_count}  
+                    - **Model confidence:** {confidence_display}
+                    """
+                )
+
+                if gap["missing"]:
+                    st.warning("Most important missing skills: " + ", ".join(gap["missing"][:8]))
+                else:
+                    st.success("No missing skills identified from the supplied job description.")
+
+            with b:
+                st.markdown("#### Recruiter-style interpretation")
+                if match_score >= 0.65:
+                    st.success("This candidate shows strong alignment with the target role.")
+                elif match_score >= 0.35:
+                    st.info("This candidate shows moderate alignment and may need some skill improvement.")
+                else:
+                    st.error("This candidate shows limited direct alignment with the target job description.")
+
+                st.markdown("#### Recommended next step")
+                if missing_count > 0:
+                    st.write("Focus resume improvement on the missing skills and tailor project descriptions accordingly.")
+                else:
+                    st.write("The candidate already aligns well. The next step is strengthening achievement-based bullet points.")
+
+        with tab2:
+            c1, c2 = st.columns([1.0, 1.0], gap="large")
+
+            with c1:
                 st.markdown("#### Top predicted roles")
                 if not top_predictions.empty:
                     chart_df = top_predictions.set_index("Role")
@@ -328,42 +579,60 @@ else:
                     st.dataframe(top_predictions, use_container_width=True, hide_index=True)
                 else:
                     st.write("Probability output is not available for this classifier.")
-            with col_b:
-                st.markdown("#### Quick interpretation")
-                st.success(f"This resume is most aligned with **{predicted_role}**.")
-                if jd_skills:
-                    st.write(f"The resume matches **{len(gap['matched'])}** target skills and misses **{len(gap['missing'])}** skills from the job description.")
-                else:
-                    st.write("Paste a job description to unlock match score and missing-skills analysis.")
-                if gap["missing"]:
-                    st.warning("Top missing skills: " + ", ".join(gap["missing"][:8]))
 
-        with tab2:
-            c1, c2 = st.columns(2, gap="large")
-            with c1:
+            with c2:
+                st.markdown("#### Performance snapshot")
+                if jd_skills:
+                    analytics_df = pd.DataFrame(
+                        {
+                            "Metric": ["Matched Skills", "Missing Skills", "Extra Skills"],
+                            "Count": [matched_count, missing_count, extra_count],
+                        }
+                    )
+                    st.bar_chart(analytics_df.set_index("Metric"))
+                    st.dataframe(analytics_df, use_container_width=True, hide_index=True)
+                else:
+                    st.info("Paste a job description to unlock job-match analytics.")
+
+        with tab3:
+            s1, s2 = st.columns(2, gap="large")
+
+            with s1:
                 st.markdown("#### Resume skills")
                 st.markdown(pill_group(resume_skills), unsafe_allow_html=True)
+
                 st.markdown("#### Matched skills")
                 st.markdown(pill_group(gap["matched"], tone="green"), unsafe_allow_html=True)
-            with c2:
+
+            with s2:
                 st.markdown("#### Missing skills")
                 st.markdown(pill_group(gap["missing"], tone="red"), unsafe_allow_html=True)
+
                 st.markdown("#### Extra resume skills")
                 st.markdown(pill_group(gap["extra"], tone="slate"), unsafe_allow_html=True)
 
-        with tab3:
-            st.text_area("Extracted resume text", resume_text[:8000], height=360)
-            if job_description.strip():
-                st.text_area("Job description text", job_description[:5000], height=220)
-
         with tab4:
-            st.markdown("#### Pipeline")
+            st.markdown("#### Extracted resume text")
+            st.text_area("Resume text", resume_text[:8000], height=320, label_visibility="collapsed")
+
+            if job_description.strip():
+                st.markdown("#### Job description text")
+                st.text_area("Job description text", job_description[:5000], height=220, label_visibility="collapsed")
+
+        with tab5:
+            st.markdown("#### Model pipeline")
             st.code(
                 "TF-IDF Vectorizer (1-2 grams, English stop words) -> Logistic Regression",
                 language="text",
             )
+
+            st.markdown("#### Stored evaluation metadata")
             if metrics:
                 st.json({"accuracy": metrics.get("accuracy"), "available_roles": clean_classes})
+            else:
+                st.info("No metrics metadata file found.")
 
-st.markdown("---")
-st.caption("Built with Streamlit, scikit-learn, pandas, and pypdf. Azure-ready startup files are included in the repo.")
+st.markdown(
+    '<div class="footer-note">Built with Streamlit, scikit-learn, pandas, and pypdf. Designed as a portfolio-grade NLP + ML dashboard and ready for GitHub + Azure deployment.</div>',
+    unsafe_allow_html=True,
+)
