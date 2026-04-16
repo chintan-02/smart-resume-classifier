@@ -80,16 +80,25 @@ Resume → Text Extraction → NLP Processing → TF-IDF → ML Model → Predic
 ## 📊 Screenshots
 
 ### 🖥️ Dashboard UI
-
 ![Dashboard](assets/app_screenshot.png)
 
-### 📊 Prediction Output
+Clean, modern UI for uploading resumes and navigating analysis.
 
+
+### 📂 Resume Upload & User Interaction
+![Upload](assets/upload_interaction.png)
+
+Users can upload resumes and provide job descriptions to instantly analyze candidate fit in an interactive dashboard.
+
+### 📊 Prediction Output
 ![Prediction](assets/prediction_output.png)
 
-### 🎯 Skill Gap Analysis
+Model predicts job role with confidence score and provides recruiter-style interpretation.
 
+### 🎯 Skill Gap Analysis
 ![Skill Gap](assets/skill_gap_analysis.png)
+
+Highlights matched skills, missing skills, and areas for improvement.
 
 ---
 
