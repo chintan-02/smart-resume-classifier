@@ -1,31 +1,30 @@
-import json
-import pickle
-from pathlib import Path
-
 import pandas as pd
 import streamlit as st
 
-from utils import (
-    clean_text,
-    extract_skills,
-    extract_text_from_pdf,
-    extract_text_from_txt,
-    jaccard_similarity,
+from src.app_config import (
+    APP_INITIAL_SIDEBAR_STATE,
+    APP_LAYOUT,
+    APP_PAGE_ICON,
+    APP_TITLE,
+    METRICS_PATH,
+    SAMPLE_JD_PATH,
+    SKILLS_PATH,
+    SUPPORTED_FILE_TYPES,
+)
+from src.jd_matcher import analyze_job_description_match, get_match_feedback
+from src.prediction_service import get_top_predictions as get_model_top_predictions
+from src.prediction_service import load_model_artifacts, predict_resume_role
+from src.preprocessing import preprocess_resume_text
+from src.resume_parser import extract_resume_text, is_supported_file
+from src.skill_extractor import (
     load_skills,
-    skill_gap_analysis,
 )
 
-BASE_DIR = Path(__file__).resolve().parent
-MODEL_PATH = BASE_DIR / "artifacts" / "resume_classifier.pkl"
-SKILLS_PATH = BASE_DIR / "data" / "skills_list.txt"
-METRICS_PATH = BASE_DIR / "artifacts" / "metrics.json"
-SAMPLE_JD_PATH = BASE_DIR / "data" / "sample_job_description.txt"
-
 st.set_page_config(
-    page_title="Smart Resume Classifier",
-    page_icon="📄",
-    layout="wide",
-    initial_sidebar_state="expanded",
+    page_title=APP_TITLE,
+    page_icon=APP_PAGE_ICON,
+    layout=APP_LAYOUT,
+    initial_sidebar_state=APP_INITIAL_SIDEBAR_STATE,
 )
 
 
@@ -265,18 +264,20 @@ def inject_css() -> None:
 
 @st.cache_resource
 def load_model():
-    with open(MODEL_PATH, "rb") as f:
-        return pickle.load(f)
+    model, vectorizer = load_model_artifacts()
+    return model, vectorizer
 
 
 @st.cache_data
 def get_skills():
-    return load_skills(str(SKILLS_PATH))
+    return load_skills(SKILLS_PATH)
 
 
 @st.cache_data
 def get_metrics():
     if METRICS_PATH.exists():
+        import json
+
         return json.loads(METRICS_PATH.read_text(encoding="utf-8"))
     return {}
 
@@ -310,15 +311,6 @@ def render_hero():
     )
 
 
-def file_to_text(file) -> str:
-    suffix = Path(file.name).suffix.lower()
-    if suffix == ".pdf":
-        return extract_text_from_pdf(file)
-    if suffix == ".txt":
-        return extract_text_from_txt(file)
-    return ""
-
-
 def styled_metric(label: str, value: str, subtext: str = "") -> None:
     st.markdown(
         f"""
@@ -344,13 +336,7 @@ def pill_group(items, tone="default"):
 
 
 def get_top_predictions(text: str, top_n: int = 5) -> pd.DataFrame:
-    if hasattr(model, "predict_proba"):
-        probs = model.predict_proba([text])[0]
-        classes = model.classes_ if hasattr(model, "classes_") else model.named_steps["clf"].classes_
-        df = pd.DataFrame({"Role": classes, "Probability": probs}).sort_values("Probability", ascending=False).head(top_n)
-        df["Confidence %"] = (df["Probability"] * 100).round(2)
-        return df[["Role", "Confidence %"]]
-    return pd.DataFrame()
+    return get_model_top_predictions(text, model, vectorizer, top_n)
 
 
 def build_summary_insight(predicted_role, match_score, matched_count, missing_count):
@@ -370,8 +356,29 @@ def build_summary_insight(predicted_role, match_score, matched_count, missing_co
 
 inject_css()
 
-model = load_model()
-skills_list = get_skills()
+app_ready = True
+model = None
+vectorizer = None
+skills_list = []
+
+try:
+    model, vectorizer = load_model()
+except FileNotFoundError as exc:
+    app_ready = False
+    st.error(f"Model artifact is missing. Please run `python train.py` first. Details: {exc}")
+except Exception as exc:
+    app_ready = False
+    st.error(f"Could not load model artifacts. Details: {exc}")
+
+try:
+    skills_list = get_skills()
+except FileNotFoundError as exc:
+    app_ready = False
+    st.error(f"Skills list is missing. Details: {exc}")
+except Exception as exc:
+    app_ready = False
+    st.error(f"Could not load skills list. Details: {exc}")
+
 metrics = get_metrics()
 
 render_hero()
@@ -414,7 +421,7 @@ with top_left:
     st.markdown('<div class="section-label">1) Upload Resume</div>', unsafe_allow_html=True)
     uploaded_file = st.file_uploader(
         "Upload a resume in PDF or TXT format",
-        type=["pdf", "txt"],
+        type=SUPPORTED_FILE_TYPES,
         label_visibility="collapsed",
     )
     st.caption("Best results come from text-based PDFs rather than scanned-image PDFs.")
@@ -478,30 +485,30 @@ with top_right:
 
 if uploaded_file is None:
     st.info("Upload a resume to unlock the full dashboard: prediction, confidence, skills, match score, and insights.")
+elif not app_ready:
+    st.error("The app cannot analyze resumes until the required model and data files are available.")
+elif not is_supported_file(uploaded_file):
+    st.error("Unsupported file type. Please upload a PDF or TXT resume.")
 else:
-    resume_text = file_to_text(uploaded_file)
-    resume_clean = clean_text(resume_text)
+    resume_text = extract_resume_text(uploaded_file)
+    resume_clean = preprocess_resume_text(resume_text)
 
     if not resume_clean.strip():
         st.error("Could not extract readable text from the uploaded file. Please try a text-based PDF or TXT file.")
     else:
-        predicted_role = model.predict([resume_clean])[0]
-        top_predictions = get_top_predictions(resume_clean)
+        prediction = predict_resume_role(resume_clean, model, vectorizer)
+        predicted_role = prediction["role"]
+        top_predictions = prediction["top_predictions"]
         confidence_display = "N/A"
 
         if not top_predictions.empty:
             confidence_display = f"{top_predictions.iloc[0]['Confidence %']:.2f}%"
 
-        resume_skills = extract_skills(resume_clean, skills_list)
-
-        jd_clean = clean_text(job_description) if job_description.strip() else ""
-        jd_skills = extract_skills(jd_clean, skills_list) if jd_clean else []
-        match_score = jaccard_similarity(resume_skills, jd_skills) if jd_skills else 0.0
-        gap = (
-            skill_gap_analysis(resume_skills, jd_skills)
-            if jd_skills
-            else {"matched": [], "missing": [], "extra": sorted(resume_skills)}
-        )
+        match_analysis = analyze_job_description_match(resume_clean, job_description, skills_list)
+        resume_skills = match_analysis["resume_skills"]
+        jd_skills = match_analysis["jd_skills"]
+        match_score = match_analysis["match_score"]
+        gap = match_analysis["gap"]
 
         matched_count = len(gap["matched"])
         missing_count = len(gap["missing"])
@@ -560,11 +567,11 @@ else:
             with b:
                 st.markdown("#### Recruiter-style interpretation")
                 if match_score >= 0.65:
-                    st.success("This candidate shows strong alignment with the target role.")
+                    st.success(get_match_feedback(match_score))
                 elif match_score >= 0.35:
-                    st.info("This candidate shows moderate alignment and may need some skill improvement.")
+                    st.info(get_match_feedback(match_score))
                 else:
-                    st.error("This candidate shows limited direct alignment with the target job description.")
+                    st.error(get_match_feedback(match_score))
 
                 st.markdown("#### Recommended next step")
                 if missing_count > 0:
