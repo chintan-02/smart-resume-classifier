@@ -15,7 +15,7 @@ from src.jd_matcher import analyze_job_description_match, get_match_feedback
 from src.prediction_service import get_top_predictions as get_model_top_predictions
 from src.prediction_service import load_model_artifacts, predict_resume_role
 from src.preprocessing import preprocess_resume_text
-from src.resume_parser import extract_resume_text, is_supported_file
+from src.resume_parser import is_supported_file, parse_resume
 from src.skill_extractor import (
     load_skills,
 )
@@ -354,6 +354,13 @@ def build_summary_insight(predicted_role, match_score, matched_count, missing_co
     )
 
 
+def summarize_detected_sections(sections: dict) -> dict:
+    return {
+        section_name: bool(section_text.strip())
+        for section_name, section_text in sections.items()
+    }
+
+
 inject_css()
 
 app_ready = True
@@ -420,11 +427,11 @@ with top_left:
     st.markdown('<div class="panel-card">', unsafe_allow_html=True)
     st.markdown('<div class="section-label">1) Upload Resume</div>', unsafe_allow_html=True)
     uploaded_file = st.file_uploader(
-        "Upload a resume in PDF or TXT format",
+        "Upload a resume in PDF, TXT, or DOCX format",
         type=SUPPORTED_FILE_TYPES,
         label_visibility="collapsed",
     )
-    st.caption("Best results come from text-based PDFs rather than scanned-image PDFs.")
+    st.caption("Best results come from text-based PDFs or DOCX files rather than scanned-image PDFs.")
     st.markdown("</div>", unsafe_allow_html=True)
 
     default_jd = load_sample_jd() if use_sample_jd else ""
@@ -488,14 +495,27 @@ if uploaded_file is None:
 elif not app_ready:
     st.error("The app cannot analyze resumes until the required model and data files are available.")
 elif not is_supported_file(uploaded_file):
-    st.error("Unsupported file type. Please upload a PDF or TXT resume.")
+    st.error("Unsupported file type. Please upload a PDF, TXT, or DOCX resume.")
 else:
-    resume_text = extract_resume_text(uploaded_file)
+    parser_result = parse_resume(uploaded_file)
+    resume_text = parser_result["text"]
     resume_clean = preprocess_resume_text(resume_text)
+    template_detection = parser_result["template_detection"]
 
     if not resume_clean.strip():
-        st.error("Could not extract readable text from the uploaded file. Please try a text-based PDF or TXT file.")
+        if uploaded_file.name.lower().endswith(".docx"):
+            st.error("Could not extract readable text from the uploaded DOCX file. Please try a completed, text-based DOCX resume.")
+        elif uploaded_file.name.lower().endswith(".pdf"):
+            st.error("Could not extract readable text from the uploaded PDF file. Please try a text-based PDF rather than a scanned-image PDF.")
+        else:
+            st.error("Could not extract readable text from the uploaded file. Please try a text-based PDF, DOCX, or TXT file.")
     else:
+        template_severity = template_detection.get("severity", "strong" if template_detection.get("is_template") else "none")
+        if template_severity == "strong":
+            st.warning(template_detection["warning"])
+        elif template_severity == "partial":
+            st.info(template_detection["warning"])
+
         prediction = predict_resume_role(resume_clean, model, vectorizer)
         predicted_role = prediction["role"]
         top_predictions = prediction["top_predictions"]
@@ -625,6 +645,41 @@ else:
         with tab4:
             st.markdown("#### Extracted resume text")
             st.text_area("Resume text", resume_text[:8000], height=320, label_visibility="collapsed")
+
+            with st.expander("Advanced parser information"):
+                st.markdown("##### Detected sections")
+                st.json(summarize_detected_sections(parser_result["sections"]))
+
+                st.markdown("##### Contact info summary")
+                st.json(parser_result["contact_info"])
+
+                st.markdown("##### Estimated years of experience")
+                years = parser_result["estimated_years_experience"]
+                st.write(f"{years} years" if years is not None else "Not detected")
+
+                st.markdown("##### Template detection")
+                if template_severity == "strong":
+                    st.warning(template_detection["warning"])
+                elif template_severity == "partial":
+                    st.info(template_detection["warning"])
+                st.write(
+                    {
+                        "template_score": template_detection["template_score"],
+                        "severity": template_detection.get("severity", "none"),
+                        "matched_placeholders": template_detection["matched_placeholders"],
+                        "real_content_signals": template_detection.get("real_content_signals", []),
+                    }
+                )
+
+                st.markdown("##### Parsed resume items")
+                st.write(
+                    {
+                        "education": parser_result["education"],
+                        "experience": parser_result["experience"],
+                        "projects": parser_result["projects"],
+                        "certifications": parser_result["certifications"],
+                    }
+                )
 
             if job_description.strip():
                 st.markdown("#### Job description text")

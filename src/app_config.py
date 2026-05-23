@@ -11,8 +11,8 @@ SKILLS_PATH = DATA_DIR / "skills_list.txt"
 METRICS_PATH = ARTIFACT_DIR / "metrics.json"
 SAMPLE_JD_PATH = DATA_DIR / "sample_job_description.txt"
 
-SUPPORTED_FILE_TYPES = ["pdf", "txt"]
-SUPPORTED_FILE_EXTENSIONS = {".pdf", ".txt"}
+SUPPORTED_FILE_TYPES = ["pdf", "txt", "docx"]
+SUPPORTED_FILE_EXTENSIONS = {".pdf", ".txt", ".docx"}
 
 APP_TITLE = "Smart Resume Classifier"
 APP_PAGE_ICON = "📄"
