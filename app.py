@@ -17,6 +17,7 @@ from src.prediction_service import get_top_predictions as get_model_top_predicti
 from src.prediction_service import load_model_artifacts, predict_resume_role
 from src.preprocessing import preprocess_resume_text
 from src.resume_parser import is_supported_file, parse_resume
+from src.sentence_quality import detect_ai_like_sentences
 from src.skill_extractor import (
     load_skills,
 )
@@ -410,6 +411,74 @@ def render_ats_section(ats_result: dict, has_job_description: bool) -> None:
     st.markdown("</div>", unsafe_allow_html=True)
 
 
+def render_sentence_quality_section(sentence_quality_result: dict) -> None:
+    st.markdown('<div class="panel-card">', unsafe_allow_html=True)
+    st.markdown('<div class="section-label">AI-Like / Generic Sentence Detection</div>', unsafe_allow_html=True)
+    st.write(
+        "This section highlights resume sentences that may sound generic, vague, or AI-like. "
+        "It does not prove AI usage; it helps improve recruiter readability."
+    )
+
+    flagged_sentences = sentence_quality_result.get("flagged_sentences", [])
+    st.write(sentence_quality_result.get("summary", ""))
+
+    total_col, high_col, moderate_col = st.columns(3, gap="medium")
+    with total_col:
+        styled_metric(
+            "Total Sentences Analyzed",
+            str(sentence_quality_result.get("total_sentences_analyzed", 0)),
+            "Readable resume sentences and bullets",
+        )
+    with high_col:
+        styled_metric(
+            "High Risk",
+            str(sentence_quality_result.get("high_risk_count", 0)),
+            "May sound generic or AI-like",
+        )
+    with moderate_col:
+        styled_metric(
+            "Moderate Risk",
+            str(sentence_quality_result.get("moderate_risk_count", 0)),
+            "Worth reviewing for specificity",
+        )
+
+    if not flagged_sentences:
+        st.success("Your resume language looks specific, natural, and recruiter-friendly.")
+        st.markdown("</div>", unsafe_allow_html=True)
+        return
+
+    for index, item in enumerate(flagged_sentences, start=1):
+        label = f"{index}. {item['risk_level']} risk | Score {item['generic_score']}/100"
+        with st.expander(label, expanded=index == 1):
+            st.markdown("##### Original sentence")
+            st.write(item["sentence"])
+
+            score_col, risk_col = st.columns(2, gap="medium")
+            with score_col:
+                st.metric("Generic/AI-like score", f"{item['generic_score']}/100")
+            with risk_col:
+                st.metric("Risk level", item["risk_level"])
+
+            st.markdown("##### Reasons")
+            for reason in item.get("reasons", []):
+                st.markdown(f"- {reason}")
+
+            signals = item.get("signals", {})
+            st.markdown("##### Signals")
+            st.write(
+                {
+                    "generic_phrases": signals.get("generic_phrases", []),
+                    "weak_phrases": signals.get("weak_phrases", []),
+                    "vague_phrases": signals.get("vague_phrases", []),
+                    "has_metric": signals.get("has_metric", False),
+                    "has_tool_or_skill": signals.get("has_tool_or_skill", False),
+                    "has_action_verb": signals.get("has_action_verb", False),
+                }
+            )
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
 def summarize_detected_sections(sections: dict) -> dict:
     return {
         section_name: bool(section_text.strip())
@@ -599,6 +668,11 @@ else:
             parser_result=parser_result,
             existing_match_score=match_score,
         )
+        sentence_quality_result = detect_ai_like_sentences(
+            resume_text=resume_text,
+            extracted_skills=resume_skills,
+            max_results=10,
+        )
 
         m1, m2, m3, m4 = st.columns(4, gap="medium")
         with m1:
@@ -620,6 +694,7 @@ else:
         )
 
         render_ats_section(ats_result, bool(job_description.strip()))
+        render_sentence_quality_section(sentence_quality_result)
 
         tab1, tab2, tab3, tab4, tab5 = st.tabs(
             ["Executive Summary", "Prediction Analytics", "Skills Intelligence", "Resume Preview", "Model Details"]
