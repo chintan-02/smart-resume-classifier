@@ -11,6 +11,7 @@ from src.app_config import (
     SKILLS_PATH,
     SUPPORTED_FILE_TYPES,
 )
+from src.ats_scorer import calculate_ats_score
 from src.jd_matcher import analyze_job_description_match, get_match_feedback
 from src.prediction_service import get_top_predictions as get_model_top_predictions
 from src.prediction_service import load_model_artifacts, predict_resume_role
@@ -354,6 +355,61 @@ def build_summary_insight(predicted_role, match_score, matched_count, missing_co
     )
 
 
+def render_ats_section(ats_result: dict, has_job_description: bool) -> None:
+    st.markdown('<div class="panel-card">', unsafe_allow_html=True)
+    st.markdown('<div class="section-label">ATS Compatibility Score</div>', unsafe_allow_html=True)
+
+    if not has_job_description:
+        st.info("Paste a job description to calculate ATS compatibility.")
+        st.markdown("</div>", unsafe_allow_html=True)
+        return
+
+    score_col, grade_col = st.columns([0.45, 0.55], gap="medium")
+    with score_col:
+        styled_metric("ATS Compatibility Score", f"{ats_result['ats_score']}%", "Estimated resume compatibility")
+    with grade_col:
+        styled_metric("Grade", ats_result["grade"], "Structure, keywords, skills, and alignment")
+
+    st.write(ats_result["feedback"])
+
+    with st.expander("Score breakdown and suggestions", expanded=False):
+        breakdown_labels = {
+            "skill_match": "Skill Match",
+            "keyword_coverage": "Keyword Coverage",
+            "section_quality": "Section Quality",
+            "achievement_score": "Achievement Score",
+            "formatting_score": "Formatting Score",
+            "jd_alignment": "JD Alignment",
+        }
+        breakdown_df = pd.DataFrame(
+            {
+                "Category": [breakdown_labels[key] for key in breakdown_labels],
+                "Score": [ats_result["breakdown"].get(key, 0) for key in breakdown_labels],
+            }
+        )
+        st.dataframe(breakdown_df, use_container_width=True, hide_index=True)
+
+        left, right = st.columns(2, gap="large")
+        with left:
+            st.markdown("##### Strengths")
+            if ats_result["strengths"]:
+                for strength in ats_result["strengths"]:
+                    st.markdown(f"- {strength}")
+            else:
+                st.write("No strong ATS compatibility signals detected yet.")
+
+        with right:
+            st.markdown("##### Improvement suggestions")
+            if ats_result["improvements"]:
+                for improvement in ats_result["improvements"]:
+                    st.markdown(f"- {improvement}")
+            else:
+                st.write("No major improvement suggestions detected.")
+
+    st.caption(ats_result["disclaimer"])
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
 def summarize_detected_sections(sections: dict) -> dict:
     return {
         section_name: bool(section_text.strip())
@@ -533,6 +589,16 @@ else:
         matched_count = len(gap["matched"])
         missing_count = len(gap["missing"])
         extra_count = len(gap["extra"])
+        ats_result = calculate_ats_score(
+            resume_text=resume_text,
+            job_description=job_description,
+            resume_skills=resume_skills,
+            jd_skills=jd_skills,
+            matched_skills=gap["matched"],
+            missing_skills=gap["missing"],
+            parser_result=parser_result,
+            existing_match_score=match_score,
+        )
 
         m1, m2, m3, m4 = st.columns(4, gap="medium")
         with m1:
@@ -552,6 +618,8 @@ else:
             """,
             unsafe_allow_html=True,
         )
+
+        render_ats_section(ats_result, bool(job_description.strip()))
 
         tab1, tab2, tab3, tab4, tab5 = st.tabs(
             ["Executive Summary", "Prediction Analytics", "Skills Intelligence", "Resume Preview", "Model Details"]
