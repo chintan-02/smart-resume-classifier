@@ -12,6 +12,7 @@ from src.app_config import (
     SUPPORTED_FILE_TYPES,
 )
 from src.ats_scorer import calculate_ats_score
+from src.candidate_fit_scorer import build_candidate_fit_score, get_candidate_fit_summary_cards
 from src.jd_matcher import analyze_job_description_match, get_match_feedback
 from src.prediction_service import get_top_predictions as get_model_top_predictions
 from src.prediction_service import load_model_artifacts, predict_resume_role
@@ -200,6 +201,51 @@ def render_resume_improvement_report(report: dict) -> None:
         st.markdown(f"- {action}")
 
     render_alert_banner(report.get("disclaimer", ""), "info")
+
+
+def render_candidate_fit_section(candidate_fit_result: dict) -> None:
+    render_section_title(
+        "Multi-Score Candidate Fit",
+        "A local, explainable fit estimate that combines resume, job-description, ATS, quality, and model signals.",
+    )
+    st.write(candidate_fit_result.get("summary", ""))
+
+    cards = get_candidate_fit_summary_cards(candidate_fit_result)
+    card_columns = st.columns(len(cards), gap="medium")
+    for column, card in zip(card_columns, cards):
+        with column:
+            render_metric_card(
+                card.get("title", ""),
+                card.get("value", ""),
+                card.get("helper_text", ""),
+            )
+
+    component_scores = candidate_fit_result.get("component_scores", [])
+    if component_scores:
+        component_df = pd.DataFrame(component_scores)
+        component_df["weight"] = component_df["weight"].apply(lambda value: f"{value:.0%}")
+        st.dataframe(component_df, width="stretch", hide_index=True)
+
+    strengths_col, risks_col = st.columns(2, gap="large")
+    with strengths_col:
+        render_section_title("Strong Fit Signals")
+        for signal in candidate_fit_result.get("strength_signals", []):
+            st.markdown(f"- {signal}")
+
+    with risks_col:
+        render_section_title("Risk Signals")
+        risks = candidate_fit_result.get("risk_signals", [])
+        if risks:
+            for risk in risks:
+                st.markdown(f"- {risk}")
+        else:
+            st.write("No major risk signals detected from the available fit components.")
+
+    render_section_title("Priority Actions")
+    for action in candidate_fit_result.get("priority_actions", []):
+        st.markdown(f"- {action}")
+
+    render_alert_banner(candidate_fit_result.get("disclaimer", ""), "info")
 
 
 def render_ats_section(ats_result: dict, has_job_description: bool) -> None:
@@ -720,6 +766,18 @@ else:
             rewrite_suggestions=rewrite_suggestions,
             parser_result=parser_result,
         )
+        candidate_fit_result = build_candidate_fit_score(
+            prediction_result=prediction,
+            ats_result=ats_result,
+            jd_match_result=match_analysis,
+            semantic_result=semantic_result,
+            skill_taxonomy_result=skill_taxonomy_result,
+            sentence_quality_result=sentence_quality_result,
+            rewrite_suggestions=rewrite_suggestions,
+            structure_advice=structure_advice,
+            parser_result=parser_result,
+            resume_text=resume_text,
+        )
 
         (
             overview_tab,
@@ -758,6 +816,7 @@ else:
                     f"{semantic_result.get('semantic_score')}%",
                     "Meaning-based JD/resume alignment",
                 )
+            render_candidate_fit_section(candidate_fit_result)
             render_resume_improvement_report(resume_improvement_report)
 
         with ats_tab:
