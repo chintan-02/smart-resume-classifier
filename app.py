@@ -12,6 +12,14 @@ from src.app_config import (
     SUPPORTED_FILE_TYPES,
 )
 from src.ats_scorer import calculate_ats_score
+from src.batch_ranker import (
+    build_batch_row,
+    convert_rows_to_csv,
+    extract_candidate_name,
+    get_batch_summary,
+    get_batch_summary_cards,
+    rank_batch_results,
+)
 from src.candidate_fit_scorer import build_candidate_fit_score, get_candidate_fit_summary_cards
 from src.jd_matcher import analyze_job_description_match, get_match_feedback
 from src.prediction_service import get_top_predictions as get_model_top_predictions
@@ -271,6 +279,99 @@ def render_candidate_fit_section(candidate_fit_result: dict, role_profile_summar
         st.markdown(f"- {action}")
 
     render_alert_banner(candidate_fit_result.get("disclaimer", ""), "info")
+
+
+def render_batch_ranking_section(job_description: str) -> None:
+    render_section_title(
+        "Batch Resume Ranking",
+        "Upload multiple resumes and compare them against the pasted job description using ResumeIQ fit signals.",
+    )
+    render_alert_banner(
+        "This is a decision-support ranking, not an automatic hiring decision.",
+        "info",
+    )
+    st.info("Batch semantic matching may take longer on the first run because the local embedding model may need to load.")
+
+    batch_uploaded_files = st.file_uploader(
+        "Upload multiple resumes",
+        type=["pdf", "docx", "txt"],
+        accept_multiple_files=True,
+        key="batch_resume_uploads",
+        help="Select multiple files at once using Command + click on Mac or Ctrl + click on Windows.",
+    )
+    batch_files = list(batch_uploaded_files or [])
+    st.caption("Select multiple files at once using Command + click on Mac or Ctrl + click on Windows.")
+
+    if batch_files:
+        st.success(f"{len(batch_files)} resume file(s) selected for batch ranking.")
+        with st.expander("Selected files"):
+            for file in batch_files:
+                st.write(f"- {file.name}")
+    else:
+        st.info(
+            "No batch resumes selected yet. You can select multiple files using Command + click on Mac, "
+            "or drag multiple files into the uploader."
+        )
+
+    if not job_description.strip():
+        render_alert_banner("Paste a job description first to run batch ranking.", "warning")
+        return
+
+    if len(batch_files) == 1:
+        render_alert_banner(
+            "Upload two or more resumes for a true comparison. One resume can still be analyzed.",
+            "info",
+        )
+
+    if not batch_files:
+        render_empty_state(
+            "No batch resumes uploaded",
+            "Upload multiple PDF, DOCX, or TXT resumes here to compare them against the pasted job description.",
+        )
+    run_batch = st.button("Run Batch Ranking", type="primary")
+
+    if run_batch:
+        if not batch_files:
+            render_alert_banner("Upload at least one batch resume before running batch ranking.", "warning")
+        else:
+            rows = []
+            progress = st.progress(0, text="Preparing batch ranking...")
+            with st.spinner("Analyzing batch resumes locally..."):
+                for index, batch_file in enumerate(batch_files, start=1):
+                    rows.append(analyze_resume_for_batch(batch_file, job_description))
+                    progress.progress(index / len(batch_files), text=f"Analyzed {index} of {len(batch_files)} resumes")
+            ranked_rows = rank_batch_results(rows)
+            st.session_state["batch_ranking_rows"] = ranked_rows
+            progress.empty()
+
+    ranked_rows = st.session_state.get("batch_ranking_rows", [])
+    if ranked_rows:
+        summary = get_batch_summary(ranked_rows)
+        st.write(summary.get("main_message", ""))
+        summary_cards = get_batch_summary_cards(summary)
+        summary_columns = st.columns(len(summary_cards), gap="medium")
+        for column, card in zip(summary_columns, summary_cards):
+            with column:
+                render_metric_card(card.get("title", ""), card.get("value", ""), card.get("helper_text", ""))
+
+        render_section_title("Ranked Resumes by Fit Signals")
+        st.caption(summary.get("top_candidate_label", ""))
+        st.dataframe(pd.DataFrame(ranked_rows), width="stretch", hide_index=True)
+
+        csv_data = convert_rows_to_csv(ranked_rows)
+        st.download_button(
+            "Download Ranked CSV",
+            data=csv_data,
+            file_name="resumeiq_batch_ranking.csv",
+            mime="text/csv",
+        )
+
+        rows_with_actions = [row for row in ranked_rows if row.get("Priority Actions")]
+        if rows_with_actions:
+            render_section_title("Priority Actions by Resume")
+            for row in rows_with_actions[:5]:
+                with st.expander(f"{row.get('Rank')}. {row.get('Candidate')}"):
+                    st.write(row.get("Priority Actions", ""))
 
 
 def render_ats_section(ats_result: dict, has_job_description: bool) -> None:
@@ -579,6 +680,113 @@ def summarize_detected_sections(sections: dict) -> dict:
     }
 
 
+def analyze_resume_for_batch(uploaded_resume, job_description: str) -> dict:
+    filename = getattr(uploaded_resume, "name", "Unknown file")
+    try:
+        if not is_supported_file(uploaded_resume):
+            candidate_name = extract_candidate_name(filename=filename)
+            return build_batch_row(
+                filename=filename,
+                candidate_name=candidate_name,
+                candidate_fit_result={
+                    "recommendation": "Could not analyze",
+                    "risk_signals": ["Unsupported file type."],
+                    "priority_actions": ["Upload a PDF, DOCX, or TXT resume."],
+                },
+            )
+
+        parser_result = parse_resume(uploaded_resume)
+        resume_text = parser_result.get("text", "")
+        resume_clean = preprocess_resume_text(resume_text)
+        candidate_name = extract_candidate_name(parser_result=parser_result, filename=filename)
+
+        if not resume_clean.strip():
+            return build_batch_row(
+                filename=filename,
+                candidate_name=candidate_name,
+                candidate_fit_result={
+                    "recommendation": "Could not analyze",
+                    "risk_signals": ["Readable resume text could not be extracted."],
+                    "priority_actions": ["Try a completed, text-based PDF, DOCX, or TXT resume."],
+                },
+            )
+
+        prediction_result = predict_resume_role(resume_clean, model, vectorizer)
+        predicted_role = prediction_result.get("role")
+        target_role = infer_target_role(predicted_role=predicted_role, job_description=job_description)
+        role_profile = get_role_profile(target_role)
+
+        jd_match_result = analyze_job_description_match(resume_clean, job_description, skills_list)
+        resume_skills = jd_match_result.get("resume_skills", [])
+        jd_skills = jd_match_result.get("jd_skills", [])
+        gap = jd_match_result.get("gap", {}) or {}
+
+        skill_taxonomy_result = compare_skill_categories(
+            resume_skills=resume_skills,
+            jd_skills=jd_skills,
+            matched_skills=gap.get("matched", []),
+            missing_skills=gap.get("missing", []),
+            extra_skills=gap.get("extra", []),
+        )
+        semantic_result = build_semantic_match_result(resume_text, job_description)
+        ats_result = calculate_ats_score(
+            resume_text=resume_text,
+            job_description=job_description,
+            resume_skills=resume_skills,
+            jd_skills=jd_skills,
+            matched_skills=gap.get("matched", []),
+            missing_skills=gap.get("missing", []),
+            parser_result=parser_result,
+            existing_match_score=jd_match_result.get("match_score", 0),
+        )
+        sentence_quality_result = detect_ai_like_sentences(
+            resume_text=resume_text,
+            extracted_skills=resume_skills,
+            max_results=10,
+        )
+        structure_advice = build_structure_advice(parser_result=parser_result, resume_text=resume_text)
+        flagged_sentences = sentence_quality_result.get("flagged_sentences", [])
+        rewrite_suggestions = generate_rewrite_suggestions(flagged_sentences, max_suggestions=8)
+        candidate_fit_result = build_candidate_fit_score(
+            prediction_result=prediction_result,
+            ats_result=ats_result,
+            jd_match_result=jd_match_result,
+            semantic_result=semantic_result,
+            skill_taxonomy_result=skill_taxonomy_result,
+            sentence_quality_result=sentence_quality_result,
+            rewrite_suggestions=rewrite_suggestions,
+            structure_advice=structure_advice,
+            parser_result=parser_result,
+            resume_text=resume_text,
+            target_role=target_role,
+            role_profile=role_profile,
+        )
+
+        return build_batch_row(
+            filename=filename,
+            candidate_name=candidate_name,
+            prediction_result=prediction_result,
+            ats_result=ats_result,
+            jd_match_result=jd_match_result,
+            semantic_result=semantic_result,
+            candidate_fit_result=candidate_fit_result,
+            skill_taxonomy_result=skill_taxonomy_result,
+            structure_advice=structure_advice,
+            sentence_quality_result=sentence_quality_result,
+        )
+    except Exception as exc:
+        candidate_name = extract_candidate_name(filename=filename)
+        return build_batch_row(
+            filename=filename,
+            candidate_name=candidate_name,
+            candidate_fit_result={
+                "recommendation": "Could not analyze",
+                "risk_signals": [f"File issue: {exc}"],
+                "priority_actions": ["Review the file format and try uploading a readable resume."],
+            },
+        )
+
+
 app_ready = True
 model = None
 vectorizer = None
@@ -711,6 +919,8 @@ if uploaded_file is None:
         "Upload a resume to begin",
         "Upload a PDF, DOCX, or TXT resume to unlock prediction, ATS compatibility, skill matching, writing-quality checks, and recruiter-style insights.",
     )
+    if app_ready:
+        render_batch_ranking_section(job_description)
 elif not app_ready:
     st.error("The app cannot analyze resumes until the required model and data files are available.")
 elif not is_supported_file(uploaded_file):
@@ -815,6 +1025,7 @@ else:
             ats_tab,
             quality_tab,
             skills_tab,
+            batch_tab,
             rewrite_tab,
             preview_tab,
             model_tab,
@@ -824,6 +1035,7 @@ else:
                 "ATS & Job Match",
                 "Resume Quality",
                 "Skills Intelligence",
+                "Batch Ranking",
                 "Rewrite Suggestions",
                 "Resume Preview",
                 "Model Details",
@@ -906,6 +1118,9 @@ else:
                 render_badge_group(gap.get("extra", []))
 
             render_skill_taxonomy_breakdown(skill_taxonomy_result)
+
+        with batch_tab:
+            render_batch_ranking_section(job_description)
 
         with rewrite_tab:
             render_section_title(
