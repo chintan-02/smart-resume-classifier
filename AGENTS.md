@@ -7,6 +7,11 @@ This project is called ResumeIQ — AI Resume Intelligence & Job Application Ass
 Previous project name:
 Smart Resume Classifier + Skill Extractor
 
+Repository name:
+smart-resume-classifier
+
+ResumeIQ is the current product name used for the app UI, README, portfolio, resume, GitHub description, and future deployment positioning. The previous name is kept only for historical context because the original project started as a resume classifier and skill extractor.
+
 The app analyzes resumes, predicts a resume/job category, extracts skills, compares resume content with a job description, checks ATS-style compatibility, detects generic or AI-like writing, and gives resume improvement guidance.
 
 The goal is not only to finish features, but also to help me understand architecture, debugging, clean code, AI/ML thinking, and production-ready project development.
