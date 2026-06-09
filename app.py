@@ -17,6 +17,7 @@ from src.prediction_service import get_top_predictions as get_model_top_predicti
 from src.prediction_service import load_model_artifacts, predict_resume_role
 from src.preprocessing import preprocess_resume_text
 from src.resume_parser import is_supported_file, parse_resume
+from src.rewrite_suggestions import generate_rewrite_suggestions, get_rewrite_summary
 from src.sentence_quality import detect_ai_like_sentences
 from src.skill_extractor import (
     load_skills,
@@ -562,10 +563,52 @@ else:
                 render_badge_group(gap.get("extra", []))
 
         with rewrite_tab:
-            render_empty_state(
-                "Humanized rewrite suggestions are coming soon",
-                "Humanized rewrite suggestions will appear here in Step 4B.",
+            render_section_title(
+                "Humanized Rewrite Suggestions",
+                "These suggestions are local and template-based. They do not invent achievements. Replace placeholders with your real details.",
             )
+            flagged_sentences = sentence_quality_result.get("flagged_sentences", [])
+            rewrite_suggestions = generate_rewrite_suggestions(flagged_sentences, max_suggestions=8)
+            rewrite_summary = get_rewrite_summary(rewrite_suggestions)
+
+            if not rewrite_suggestions:
+                render_empty_state(
+                    "No rewrite suggestions yet",
+                    "ResumeIQ generates rewrite suggestions when it finds generic, vague, or AI-like sentences.",
+                )
+            else:
+                summary_col, pattern_col = st.columns([0.42, 0.58], gap="medium")
+                with summary_col:
+                    render_metric_card(
+                        "Total Suggestions",
+                        rewrite_summary.get("total_suggestions", 0),
+                        "Template-based suggestions from flagged sentences",
+                    )
+                with pattern_col:
+                    render_section_title("Top Issue Patterns")
+                    render_badge_group(rewrite_summary.get("top_patterns", []))
+
+                render_alert_banner(rewrite_summary.get("priority_message", ""), "info")
+
+                for index, suggestion in enumerate(rewrite_suggestions, start=1):
+                    with st.expander(f"{index}. {suggestion.get('issue', 'Rewrite suggestion')}", expanded=index == 1):
+                        st.markdown("##### Original sentence")
+                        st.write(suggestion.get("original_sentence", ""))
+
+                        st.markdown("##### Issue")
+                        st.write(suggestion.get("issue", ""))
+
+                        st.markdown("##### Why it may be weak")
+                        st.write(suggestion.get("why_weak", ""))
+
+                        st.markdown("##### Suggested rewrite template")
+                        st.write(suggestion.get("suggested_rewrite", ""))
+
+                        st.markdown("##### Stronger resume version")
+                        st.write(suggestion.get("stronger_resume_version", ""))
+
+                        st.markdown("##### Rewrite tip")
+                        st.write(suggestion.get("rewrite_tip", ""))
 
         with preview_tab:
             render_section_title(
