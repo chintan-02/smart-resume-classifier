@@ -21,6 +21,16 @@ from src.sentence_quality import detect_ai_like_sentences
 from src.skill_extractor import (
     load_skills,
 )
+from src.ui.ui_components import (
+    render_alert_banner,
+    render_badge_group,
+    render_empty_state,
+    render_hero,
+    render_metric_card,
+    render_score_summary,
+    render_section_title,
+)
+from src.ui.ui_styles import apply_global_styles
 
 st.set_page_config(
     page_title=APP_TITLE,
@@ -29,239 +39,7 @@ st.set_page_config(
     initial_sidebar_state=APP_INITIAL_SIDEBAR_STATE,
 )
 
-
-def inject_css() -> None:
-    st.markdown(
-        """
-        <style>
-        /* Keep the header present so the sidebar reopen arrow can appear */
-        header[data-testid="stHeader"] {
-            background: transparent !important;
-        }
-
-        /* Keep sidebar toggle visible */
-        [data-testid="collapsedControl"] {
-            display: flex !important;
-            opacity: 1 !important;
-            visibility: visible !important;
-        }
-
-        .stApp {
-            background:
-                radial-gradient(circle at top left, rgba(99,102,241,0.16), transparent 28%),
-                radial-gradient(circle at top right, rgba(16,185,129,0.12), transparent 24%),
-                linear-gradient(180deg, #07111f 0%, #0a1326 45%, #07111f 100%);
-        }
-
-        .block-container {
-            padding-top: 1.05rem !important;
-            padding-bottom: 2.4rem;
-            padding-left: 2rem;
-            padding-right: 2rem;
-            max-width: 1260px;
-        }
-
-        [data-testid="stAppViewContainer"] {
-            padding-top: 0rem !important;
-            margin-top: 0rem !important;
-        }
-
-        section[data-testid="stSidebar"] > div {
-            padding-top: 1.2rem !important;
-            background: linear-gradient(180deg, rgba(9,15,27,0.97), rgba(16,24,39,0.96));
-        }
-
-        .hero {
-            background: linear-gradient(135deg, rgba(79,70,229,0.24), rgba(16,185,129,0.17));
-            border: 1px solid rgba(255,255,255,0.09);
-            padding: 1.8rem 1.8rem 1.4rem 1.8rem;
-            border-radius: 28px;
-            box-shadow: 0 18px 45px rgba(0,0,0,0.28);
-            margin-bottom: 1.35rem;
-        }
-
-        .hero-badge {
-            display: inline-block;
-            padding: 0.36rem 0.78rem;
-            border-radius: 999px;
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.12);
-            color: #dbeafe;
-            font-size: 0.82rem;
-            font-weight: 600;
-            margin-bottom: 0.9rem;
-        }
-
-        .hero-title {
-            margin: 0;
-            color: #f8fafc;
-            font-size: 2.45rem;
-            line-height: 1.1;
-            font-weight: 800;
-            letter-spacing: -0.03em;
-        }
-
-        .hero-subtitle {
-            color: #dbe4ff;
-            font-size: 1.02rem;
-            line-height: 1.7;
-            margin-top: 0.8rem;
-            margin-bottom: 1.1rem;
-            max-width: 950px;
-        }
-
-        .hero-chip-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.55rem;
-        }
-
-        .hero-chip {
-            background: rgba(255,255,255,0.06);
-            border: 1px solid rgba(255,255,255,0.1);
-            color: #eef2ff;
-            padding: 0.45rem 0.8rem;
-            border-radius: 999px;
-            font-size: 0.84rem;
-        }
-
-        .panel-card {
-            background: rgba(255,255,255,0.045);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 22px;
-            padding: 1.15rem 1.15rem 1rem 1.15rem;
-            box-shadow: 0 12px 28px rgba(0,0,0,0.18);
-            margin-bottom: 1rem;
-        }
-
-        .metric-card {
-            background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.04));
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 20px;
-            padding: 1rem 1rem 0.95rem 1rem;
-            min-height: 125px;
-            box-shadow: 0 10px 24px rgba(0,0,0,0.14);
-        }
-
-        .metric-label {
-            color: #b8c1d9;
-            font-size: 0.85rem;
-            margin-bottom: 0.45rem;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-        }
-
-        .metric-value {
-            color: #ffffff;
-            font-size: 1.75rem;
-            font-weight: 800;
-            line-height: 1.1;
-        }
-
-        .metric-subtext {
-            color: #93c5fd;
-            font-size: 0.86rem;
-            margin-top: 0.45rem;
-        }
-
-        .section-label {
-            color: #f8fafc;
-            font-size: 1.08rem;
-            margin-bottom: 0.7rem;
-            font-weight: 700;
-        }
-
-        .minor-label {
-            color: #e5e7eb;
-            font-size: 0.96rem;
-            font-weight: 600;
-            margin-bottom: 0.35rem;
-        }
-
-        .subtle {
-            color: #b8c1d9;
-            font-size: 0.93rem;
-            line-height: 1.75;
-        }
-
-        .skill-pill {
-            display: inline-block;
-            padding: 0.36rem 0.72rem;
-            border-radius: 999px;
-            margin: 0.18rem 0.26rem 0.18rem 0;
-            background: rgba(99,102,241,0.18);
-            border: 1px solid rgba(129,140,248,0.35);
-            color: #eef2ff;
-            font-size: 0.86rem;
-        }
-
-        .pill-green {
-            background: rgba(16,185,129,0.18);
-            border-color: rgba(52,211,153,0.45);
-        }
-
-        .pill-red {
-            background: rgba(239,68,68,0.14);
-            border-color: rgba(248,113,113,0.35);
-        }
-
-        .pill-slate {
-            background: rgba(148,163,184,0.12);
-            border-color: rgba(148,163,184,0.25);
-        }
-
-        [data-testid="stFileUploader"] {
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 18px;
-            padding: 0.7rem;
-        }
-
-        [data-testid="stTextArea"] textarea {
-            background: rgba(255,255,255,0.04) !important;
-            color: #f8fafc !important;
-            border: 1px solid rgba(255,255,255,0.08) !important;
-            border-radius: 18px !important;
-        }
-
-        .stTextArea textarea, .stTextInput input {
-            border-radius: 16px !important;
-        }
-
-        div[data-testid="stMetric"] {
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 18px;
-            padding: 0.8rem;
-        }
-
-        hr {
-            margin-top: 0.7rem !important;
-            margin-bottom: 0.7rem !important;
-            border: none !important;
-            height: 0 !important;
-        }
-
-        .insight-box {
-            background: rgba(255,255,255,0.045);
-            border-left: 4px solid rgba(96,165,250,0.8);
-            padding: 0.95rem 1rem;
-            border-radius: 14px;
-            color: #dbeafe;
-            margin-top: 0.65rem;
-            margin-bottom: 0.8rem;
-            line-height: 1.65;
-        }
-
-        .footer-note {
-            color: #94a3b8;
-            font-size: 0.88rem;
-            margin-top: 1.1rem;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+apply_global_styles()
 
 
 @st.cache_resource
@@ -289,54 +67,6 @@ def load_sample_jd() -> str:
     return SAMPLE_JD_PATH.read_text(encoding="utf-8") if SAMPLE_JD_PATH.exists() else ""
 
 
-def render_hero():
-    st.markdown(
-        """
-        <div class="hero">
-            <div class="hero-badge">Portfolio Project • NLP + ML + Dashboard UI</div>
-            <div class="hero-title">📄 Smart Resume Classifier + Skill Extractor</div>
-            <div class="hero-subtitle">
-                An end-to-end resume intelligence dashboard that predicts likely job roles,
-                extracts technical skills, compares resume content with a target job description,
-                and highlights skill gaps for interview and application readiness.
-            </div>
-            <div class="hero-chip-row">
-                <div class="hero-chip">Resume Classification</div>
-                <div class="hero-chip">Skill Extraction</div>
-                <div class="hero-chip">Job Matching</div>
-                <div class="hero-chip">Gap Analysis</div>
-                <div class="hero-chip">Azure Deployable</div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def styled_metric(label: str, value: str, subtext: str = "") -> None:
-    st.markdown(
-        f"""
-        <div class="metric-card">
-            <div class="metric-label">{label}</div>
-            <div class="metric-value">{value}</div>
-            <div class="metric-subtext">{subtext}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def pill_group(items, tone="default"):
-    if not items:
-        return '<span class="subtle">None</span>'
-    tone_class = {
-        "green": "pill-green",
-        "red": "pill-red",
-        "slate": "pill-slate",
-    }.get(tone, "")
-    return "".join([f'<span class="skill-pill {tone_class}">{item}</span>' for item in items])
-
-
 def get_top_predictions(text: str, top_n: int = 5) -> pd.DataFrame:
     return get_model_top_predictions(text, model, vectorizer, top_n)
 
@@ -356,22 +86,100 @@ def build_summary_insight(predicted_role, match_score, matched_count, missing_co
     )
 
 
+def render_analysis_overview(
+    predicted_role,
+    confidence_display,
+    ats_result,
+    match_score,
+    matched_count,
+    missing_count,
+    extra_count,
+    gap,
+) -> None:
+    render_section_title(
+        "Candidate Snapshot",
+        "A recruiter-style summary of the current resume, model output, and job alignment signals.",
+    )
+    c1, c2, c3, c4 = st.columns(4, gap="medium")
+    with c1:
+        render_metric_card("Predicted Role", predicted_role, "Top classification output")
+    with c2:
+        render_metric_card("Model Confidence", confidence_display, "Highest class probability")
+    with c3:
+        render_metric_card("ATS Score", f"{ats_result.get('ats_score', 0)}%", ats_result.get("grade"))
+    with c4:
+        render_metric_card("JD Match Score", f"{match_score:.2%}", "Skill overlap with target job")
+
+    st.markdown(
+        f"""
+        <div class="insight-box">
+            {build_summary_insight(predicted_role, match_score, matched_count, missing_count)}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    left, right = st.columns([1.05, 0.95], gap="large")
+    with left:
+        render_section_title("Top Highlights")
+        highlights = [
+            f"Matched skills: {matched_count}",
+            f"Extra resume skills: {extra_count}",
+            f"Model confidence: {confidence_display}",
+        ]
+        if ats_result.get("grade"):
+            highlights.append(f"ATS grade: {ats_result.get('grade')}")
+        for item in highlights:
+            st.markdown(f"- {item}")
+
+    with right:
+        render_section_title("Top Risks")
+        risks = []
+        missing_skills = gap.get("missing", []) if isinstance(gap, dict) else []
+        if missing_skills:
+            risks.append("Missing target skills: " + ", ".join(missing_skills[:8]))
+        if match_score < 0.35:
+            risks.append("Job-description skill overlap is currently limited.")
+        if ats_result.get("ats_score", 0) < 50:
+            risks.append("ATS compatibility needs stronger structure, keywords, or evidence.")
+        if not risks:
+            risks.append("No major job-match risks detected from the available signals.")
+        for item in risks:
+            st.markdown(f"- {item}")
+
+    render_section_title("Recruiter-Style Interpretation")
+    if match_score >= 0.65:
+        render_alert_banner(get_match_feedback(match_score), "success")
+    elif match_score >= 0.35:
+        render_alert_banner(get_match_feedback(match_score), "info")
+    else:
+        render_alert_banner(get_match_feedback(match_score), "warning")
+
+    render_section_title("Recommended Next Step")
+    if missing_count > 0:
+        st.write("Focus resume improvement on the missing skills and tailor project descriptions around the target role.")
+    else:
+        st.write("The candidate already aligns well. The next step is strengthening achievement-based bullet points.")
+
+
 def render_ats_section(ats_result: dict, has_job_description: bool) -> None:
-    st.markdown('<div class="panel-card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-label">ATS Compatibility Score</div>', unsafe_allow_html=True)
+    render_section_title("ATS Compatibility", "Structure, keyword coverage, skill overlap, and role alignment.")
 
     if not has_job_description:
-        st.info("Paste a job description to calculate ATS compatibility.")
-        st.markdown("</div>", unsafe_allow_html=True)
+        render_alert_banner("Paste a job description to calculate ATS compatibility.", "info")
         return
 
     score_col, grade_col = st.columns([0.45, 0.55], gap="medium")
     with score_col:
-        styled_metric("ATS Compatibility Score", f"{ats_result['ats_score']}%", "Estimated resume compatibility")
+        render_score_summary(
+            "ATS Compatibility Score",
+            ats_result.get("ats_score"),
+            helper_text="Estimated resume compatibility",
+        )
     with grade_col:
-        styled_metric("Grade", ats_result["grade"], "Structure, keywords, skills, and alignment")
+        render_metric_card("Grade", ats_result.get("grade", "N/A"), "Structure, keywords, skills, and alignment")
 
-    st.write(ats_result["feedback"])
+    st.write(ats_result.get("feedback", ""))
 
     with st.expander("Score breakdown and suggestions", expanded=False):
         breakdown_labels = {
@@ -385,7 +193,7 @@ def render_ats_section(ats_result: dict, has_job_description: bool) -> None:
         breakdown_df = pd.DataFrame(
             {
                 "Category": [breakdown_labels[key] for key in breakdown_labels],
-                "Score": [ats_result["breakdown"].get(key, 0) for key in breakdown_labels],
+                "Score": [(ats_result.get("breakdown") or {}).get(key, 0) for key in breakdown_labels],
             }
         )
         st.dataframe(breakdown_df, use_container_width=True, hide_index=True)
@@ -393,27 +201,28 @@ def render_ats_section(ats_result: dict, has_job_description: bool) -> None:
         left, right = st.columns(2, gap="large")
         with left:
             st.markdown("##### Strengths")
-            if ats_result["strengths"]:
-                for strength in ats_result["strengths"]:
+            if ats_result.get("strengths"):
+                for strength in ats_result.get("strengths", []):
                     st.markdown(f"- {strength}")
             else:
                 st.write("No strong ATS compatibility signals detected yet.")
 
         with right:
             st.markdown("##### Improvement suggestions")
-            if ats_result["improvements"]:
-                for improvement in ats_result["improvements"]:
+            if ats_result.get("improvements"):
+                for improvement in ats_result.get("improvements", []):
                     st.markdown(f"- {improvement}")
             else:
                 st.write("No major improvement suggestions detected.")
 
-    st.caption(ats_result["disclaimer"])
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.caption(ats_result.get("disclaimer", ""))
 
 
 def render_sentence_quality_section(sentence_quality_result: dict) -> None:
-    st.markdown('<div class="panel-card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-label">AI-Like / Generic Sentence Detection</div>', unsafe_allow_html=True)
+    render_section_title(
+        "AI-Like / Generic Sentence Detection",
+        "Flags wording that may sound generic, vague, or AI-like. This does not prove AI usage.",
+    )
     st.write(
         "This section highlights resume sentences that may sound generic, vague, or AI-like. "
         "It does not prove AI usage; it helps improve recruiter readability."
@@ -424,40 +233,39 @@ def render_sentence_quality_section(sentence_quality_result: dict) -> None:
 
     total_col, high_col, moderate_col = st.columns(3, gap="medium")
     with total_col:
-        styled_metric(
+        render_metric_card(
             "Total Sentences Analyzed",
             str(sentence_quality_result.get("total_sentences_analyzed", 0)),
             "Readable resume sentences and bullets",
         )
     with high_col:
-        styled_metric(
+        render_metric_card(
             "High Risk",
             str(sentence_quality_result.get("high_risk_count", 0)),
             "May sound generic or AI-like",
         )
     with moderate_col:
-        styled_metric(
+        render_metric_card(
             "Moderate Risk",
             str(sentence_quality_result.get("moderate_risk_count", 0)),
             "Worth reviewing for specificity",
         )
 
     if not flagged_sentences:
-        st.success("Your resume language looks specific, natural, and recruiter-friendly.")
-        st.markdown("</div>", unsafe_allow_html=True)
+        render_alert_banner("Your resume language looks specific, natural, and recruiter-friendly.", "success")
         return
 
     for index, item in enumerate(flagged_sentences, start=1):
-        label = f"{index}. {item['risk_level']} risk | Score {item['generic_score']}/100"
+        label = f"{index}. {item.get('risk_level', 'Unknown')} risk | Score {item.get('generic_score', 0)}/100"
         with st.expander(label, expanded=index == 1):
             st.markdown("##### Original sentence")
-            st.write(item["sentence"])
+            st.write(item.get("sentence", ""))
 
             score_col, risk_col = st.columns(2, gap="medium")
             with score_col:
-                st.metric("Generic/AI-like score", f"{item['generic_score']}/100")
+                st.metric("Generic/AI-like score", f"{item.get('generic_score', 0)}/100")
             with risk_col:
-                st.metric("Risk level", item["risk_level"])
+                st.metric("Risk level", item.get("risk_level", "Unknown"))
 
             st.markdown("##### Reasons")
             for reason in item.get("reasons", []):
@@ -476,8 +284,6 @@ def render_sentence_quality_section(sentence_quality_result: dict) -> None:
                 }
             )
 
-    st.markdown("</div>", unsafe_allow_html=True)
-
 
 def summarize_detected_sections(sections: dict) -> dict:
     return {
@@ -485,8 +291,6 @@ def summarize_detected_sections(sections: dict) -> dict:
         for section_name, section_text in sections.items()
     }
 
-
-inject_css()
 
 app_ready = True
 model = None
@@ -616,7 +420,10 @@ with top_right:
     )
 
 if uploaded_file is None:
-    st.info("Upload a resume to unlock the full dashboard: prediction, confidence, skills, match score, and insights.")
+    render_empty_state(
+        "Upload a resume to begin",
+        "Upload a PDF, DOCX, or TXT resume to unlock prediction, ATS compatibility, skill matching, writing-quality checks, and recruiter-style insights.",
+    )
 elif not app_ready:
     st.error("The app cannot analyze resumes until the required model and data files are available.")
 elif not is_supported_file(uploaded_file):
@@ -674,172 +481,185 @@ else:
             max_results=10,
         )
 
-        m1, m2, m3, m4 = st.columns(4, gap="medium")
-        with m1:
-            styled_metric("Predicted Role", predicted_role, "Top classification output")
-        with m2:
-            styled_metric("Model Confidence", confidence_display, "Highest class probability")
-        with m3:
-            styled_metric("Resume Skills", str(len(resume_skills)), "Skills extracted from resume")
-        with m4:
-            styled_metric("JD Match Score", f"{match_score:.2%}", "Overlap with target job skills")
-
-        st.markdown(
-            f"""
-            <div class="insight-box">
-                {build_summary_insight(predicted_role, match_score, matched_count, missing_count)}
-            </div>
-            """,
-            unsafe_allow_html=True,
+        (
+            overview_tab,
+            ats_tab,
+            quality_tab,
+            skills_tab,
+            rewrite_tab,
+            preview_tab,
+            model_tab,
+        ) = st.tabs(
+            [
+                "Overview",
+                "ATS & Job Match",
+                "Resume Quality",
+                "Skills Intelligence",
+                "Rewrite Suggestions",
+                "Resume Preview",
+                "Model Details",
+            ]
         )
 
-        render_ats_section(ats_result, bool(job_description.strip()))
-        render_sentence_quality_section(sentence_quality_result)
+        with overview_tab:
+            render_analysis_overview(
+                predicted_role=predicted_role,
+                confidence_display=confidence_display,
+                ats_result=ats_result,
+                match_score=match_score,
+                matched_count=matched_count,
+                missing_count=missing_count,
+                extra_count=extra_count,
+                gap=gap,
+            )
 
-        tab1, tab2, tab3, tab4, tab5 = st.tabs(
-            ["Executive Summary", "Prediction Analytics", "Skills Intelligence", "Resume Preview", "Model Details"]
-        )
+        with ats_tab:
+            render_ats_section(ats_result, bool(job_description.strip()))
+            render_section_title("Job Description Match", "Skill overlap between the resume and target role.")
 
-        with tab1:
-            a, b = st.columns([1.1, 0.9], gap="large")
-
-            with a:
-                st.markdown("#### Candidate fit summary")
-                st.write(
-                    f"""
-                    This resume appears most aligned with **{predicted_role}**.
-                    The dashboard suggests a **{match_score:.2%}** skill overlap against the target job description.
-                    """
-                )
-
-                st.markdown("#### Key highlights")
-                st.markdown(
-                    f"""
-                    - **Matched skills:** {matched_count}  
-                    - **Missing skills:** {missing_count}  
-                    - **Extra resume skills:** {extra_count}  
-                    - **Model confidence:** {confidence_display}
-                    """
-                )
-
-                if gap["missing"]:
-                    st.warning("Most important missing skills: " + ", ".join(gap["missing"][:8]))
-                else:
-                    st.success("No missing skills identified from the supplied job description.")
-
-            with b:
-                st.markdown("#### Recruiter-style interpretation")
-                if match_score >= 0.65:
-                    st.success(get_match_feedback(match_score))
-                elif match_score >= 0.35:
-                    st.info(get_match_feedback(match_score))
-                else:
-                    st.error(get_match_feedback(match_score))
-
-                st.markdown("#### Recommended next step")
-                if missing_count > 0:
-                    st.write("Focus resume improvement on the missing skills and tailor project descriptions accordingly.")
-                else:
-                    st.write("The candidate already aligns well. The next step is strengthening achievement-based bullet points.")
-
-        with tab2:
-            c1, c2 = st.columns([1.0, 1.0], gap="large")
-
-            with c1:
-                st.markdown("#### Top predicted roles")
-                if not top_predictions.empty:
-                    chart_df = top_predictions.set_index("Role")
-                    st.bar_chart(chart_df["Confidence %"])
-                    st.dataframe(top_predictions, use_container_width=True, hide_index=True)
-                else:
-                    st.write("Probability output is not available for this classifier.")
-
-            with c2:
-                st.markdown("#### Performance snapshot")
-                if jd_skills:
-                    analytics_df = pd.DataFrame(
-                        {
-                            "Metric": ["Matched Skills", "Missing Skills", "Extra Skills"],
-                            "Count": [matched_count, missing_count, extra_count],
-                        }
-                    )
-                    st.bar_chart(analytics_df.set_index("Metric"))
-                    st.dataframe(analytics_df, use_container_width=True, hide_index=True)
-                else:
-                    st.info("Paste a job description to unlock job-match analytics.")
-
-        with tab3:
-            s1, s2 = st.columns(2, gap="large")
-
-            with s1:
-                st.markdown("#### Resume skills")
-                st.markdown(pill_group(resume_skills), unsafe_allow_html=True)
-
-                st.markdown("#### Matched skills")
-                st.markdown(pill_group(gap["matched"], tone="green"), unsafe_allow_html=True)
-
-            with s2:
-                st.markdown("#### Missing skills")
-                st.markdown(pill_group(gap["missing"], tone="red"), unsafe_allow_html=True)
-
-                st.markdown("#### Extra resume skills")
-                st.markdown(pill_group(gap["extra"], tone="slate"), unsafe_allow_html=True)
-
-        with tab4:
-            st.markdown("#### Extracted resume text")
-            st.text_area("Resume text", resume_text[:8000], height=320, label_visibility="collapsed")
-
-            with st.expander("Advanced parser information"):
-                st.markdown("##### Detected sections")
-                st.json(summarize_detected_sections(parser_result["sections"]))
-
-                st.markdown("##### Contact info summary")
-                st.json(parser_result["contact_info"])
-
-                st.markdown("##### Estimated years of experience")
-                years = parser_result["estimated_years_experience"]
-                st.write(f"{years} years" if years is not None else "Not detected")
-
-                st.markdown("##### Template detection")
-                if template_severity == "strong":
-                    st.warning(template_detection["warning"])
-                elif template_severity == "partial":
-                    st.info(template_detection["warning"])
-                st.write(
-                    {
-                        "template_score": template_detection["template_score"],
-                        "severity": template_detection.get("severity", "none"),
-                        "matched_placeholders": template_detection["matched_placeholders"],
-                        "real_content_signals": template_detection.get("real_content_signals", []),
-                    }
-                )
-
-                st.markdown("##### Parsed resume items")
-                st.write(
-                    {
-                        "education": parser_result["education"],
-                        "experience": parser_result["experience"],
-                        "projects": parser_result["projects"],
-                        "certifications": parser_result["certifications"],
-                    }
-                )
+            jm1, jm2, jm3 = st.columns(3, gap="medium")
+            with jm1:
+                render_score_summary("JD Match Percentage", f"{match_score:.2%}", helper_text="Resume/JD skill overlap")
+            with jm2:
+                render_metric_card("Matched Skills", matched_count, "Skills found in both resume and JD")
+            with jm3:
+                render_metric_card("Missing Skills", missing_count, "JD skills not detected in resume")
 
             if job_description.strip():
-                st.markdown("#### Job description text")
+                st.markdown("##### Matched skills")
+                render_badge_group(gap.get("matched", []))
+                st.markdown("##### Missing skills")
+                render_badge_group(gap.get("missing", []))
+            else:
+                render_alert_banner("Paste a job description to unlock matched and missing skill analysis.", "info")
+
+        with quality_tab:
+            template_message = template_detection.get("warning")
+            if template_severity == "strong" and template_message:
+                render_alert_banner(template_message, "warning")
+            elif template_severity == "partial" and template_message:
+                render_alert_banner(template_message, "info")
+            render_sentence_quality_section(sentence_quality_result)
+
+        with skills_tab:
+            render_section_title(
+                "Skills Intelligence",
+                "Extracted resume skills, target-job overlap, missing skills, and additional resume strengths.",
+            )
+            skill_cols = st.columns(2, gap="large")
+            with skill_cols[0]:
+                st.markdown("##### Resume skills")
+                render_badge_group(resume_skills)
+
+                st.markdown("##### Matched skills")
+                render_badge_group(gap.get("matched", []))
+
+            with skill_cols[1]:
+                st.markdown("##### Missing skills")
+                render_badge_group(gap.get("missing", []))
+
+                st.markdown("##### Extra resume skills")
+                render_badge_group(gap.get("extra", []))
+
+        with rewrite_tab:
+            render_empty_state(
+                "Humanized rewrite suggestions are coming soon",
+                "Humanized rewrite suggestions will appear here in Step 4B.",
+            )
+
+        with preview_tab:
+            render_section_title(
+                "Resume Preview",
+                "Extracted text and parser details used by the current analysis pipeline.",
+            )
+            st.markdown("##### Extracted resume text")
+            st.text_area("Resume text", resume_text[:8000], height=320, label_visibility="collapsed")
+
+            with st.expander("Parser details", expanded=False):
+                sections = parser_result.get("sections", {})
+                if sections:
+                    st.markdown("##### Detected sections")
+                    st.json(summarize_detected_sections(sections))
+
+                contact_info = parser_result.get("contact_info")
+                if contact_info:
+                    st.markdown("##### Contact summary")
+                    st.json(contact_info)
+
+                st.markdown("##### Estimated years of experience")
+                years = parser_result.get("estimated_years_experience")
+                st.write(f"{years} years" if years is not None else "Not detected")
+
+                if template_detection:
+                    st.markdown("##### Template detection")
+                    if template_severity == "strong" and template_detection.get("warning"):
+                        st.warning(template_detection.get("warning"))
+                    elif template_severity == "partial" and template_detection.get("warning"):
+                        st.info(template_detection.get("warning"))
+                    st.write(
+                        {
+                            "template_score": template_detection.get("template_score"),
+                            "severity": template_detection.get("severity", "none"),
+                            "matched_placeholders": template_detection.get("matched_placeholders", []),
+                            "real_content_signals": template_detection.get("real_content_signals", []),
+                        }
+                    )
+
+                parsed_items = {
+                    "education": parser_result.get("education"),
+                    "experience": parser_result.get("experience"),
+                    "projects": parser_result.get("projects"),
+                    "certifications": parser_result.get("certifications"),
+                }
+                available_items = {key: value for key, value in parsed_items.items() if value}
+                if available_items:
+                    st.markdown("##### Parsed resume items")
+                    st.write(available_items)
+
+            if job_description.strip():
+                st.markdown("##### Job description text")
                 st.text_area("Job description text", job_description[:5000], height=220, label_visibility="collapsed")
 
-        with tab5:
-            st.markdown("#### Model pipeline")
+        with model_tab:
+            render_section_title(
+                "Model Details",
+                "Current baseline classifier metadata and probability output.",
+            )
+            render_alert_banner(
+                "The current baseline model is useful for demonstration, but the 100% validation accuracy and low real-resume confidence should be investigated later with stronger evaluation, calibration, and model comparison.",
+                "info",
+            )
+
+            st.markdown("##### Model pipeline")
             st.code(
                 "TF-IDF Vectorizer (1-2 grams, English stop words) -> Logistic Regression",
                 language="text",
             )
 
-            st.markdown("#### Stored evaluation metadata")
+            st.markdown("##### Prediction probabilities")
+            if not top_predictions.empty:
+                chart_df = top_predictions.set_index("Role")
+                st.bar_chart(chart_df["Confidence %"])
+                st.dataframe(top_predictions, use_container_width=True, hide_index=True)
+            else:
+                st.write("Probability output is not available for this classifier.")
+
+            st.markdown("##### Stored evaluation metadata")
             if metrics:
                 st.json({"accuracy": metrics.get("accuracy"), "available_roles": clean_classes})
             else:
                 st.info("No metrics metadata file found.")
+
+            if jd_skills:
+                st.markdown("##### Match analytics snapshot")
+                analytics_df = pd.DataFrame(
+                    {
+                        "Metric": ["Matched Skills", "Missing Skills", "Extra Skills"],
+                        "Count": [matched_count, missing_count, extra_count],
+                    }
+                )
+                st.bar_chart(analytics_df.set_index("Metric"))
+                st.dataframe(analytics_df, use_container_width=True, hide_index=True)
 
 st.markdown(
     '<div class="footer-note">Built with Streamlit, scikit-learn, pandas, and pypdf. Designed as a portfolio-grade NLP + ML dashboard and ready for GitHub + Azure deployment.</div>',
