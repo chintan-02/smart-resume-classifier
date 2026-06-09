@@ -135,6 +135,7 @@ def get_role_profiles() -> dict:
                 "pytorch",
                 "fastapi",
                 "docker",
+                "kubernetes",
                 "cloud",
                 "api",
                 "model deployment",
@@ -160,6 +161,7 @@ def get_role_profiles() -> dict:
                 "flask",
                 "git",
                 "docker",
+                "kubernetes",
                 "sql",
                 "model deployment",
             ],
@@ -190,9 +192,10 @@ def get_role_profiles() -> dict:
                 "openai api",
                 "hugging face",
                 "fastapi",
+                "kubernetes",
                 "python",
             ],
-            "Generative AI Engineer profiles prioritize LLM applications, RAG pipelines, embeddings, vector search, prompt engineering, and production API integration.",
+            "Generative AI Engineer profiles prioritize LLM applications, RAG pipelines, embeddings, vector search, prompt engineering, production API integration, and deployment skills such as Kubernetes only when they reflect real experience.",
         ),
         "LLM Engineer": _profile(
             {
