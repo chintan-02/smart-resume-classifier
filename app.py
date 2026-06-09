@@ -1,3 +1,5 @@
+from io import BytesIO
+
 import pandas as pd
 import streamlit as st
 
@@ -84,6 +86,51 @@ def load_sample_jd() -> str:
 
 def get_top_predictions(text: str, top_n: int = 5) -> pd.DataFrame:
     return get_model_top_predictions(text, model, vectorizer, top_n)
+
+
+class StoredUploadedFile:
+    def __init__(self, name, file_type, data):
+        self.name = name
+        self.type = file_type
+        self._data = data
+        self._buffer = BytesIO(data)
+
+    def getvalue(self):
+        return self._data
+
+    def read(self, *args, **kwargs):
+        return self._buffer.read(*args, **kwargs)
+
+    def seek(self, *args, **kwargs):
+        return self._buffer.seek(*args, **kwargs)
+
+    def tell(self):
+        return self._buffer.tell()
+
+
+def ensure_batch_file_store() -> None:
+    if "batch_file_store" not in st.session_state:
+        st.session_state["batch_file_store"] = []
+
+
+def store_files_for_batch(files) -> int:
+    ensure_batch_file_store()
+    stored_names = {item.get("name") for item in st.session_state["batch_file_store"]}
+    added_count = 0
+    for file in list(files or []):
+        file_name = getattr(file, "name", "")
+        if not file_name or file_name in stored_names:
+            continue
+        st.session_state["batch_file_store"].append(
+            {
+                "name": file_name,
+                "type": getattr(file, "type", ""),
+                "bytes": file.getvalue(),
+            }
+        )
+        stored_names.add(file_name)
+        added_count += 1
+    return added_count
 
 
 def build_summary_insight(predicted_role, match_score, matched_count, missing_count):
@@ -299,18 +346,55 @@ def render_batch_ranking_section(job_description: str) -> None:
         key="batch_resume_uploads",
         help="Select multiple files at once using Command + click on Mac or Ctrl + click on Windows.",
     )
-    batch_files = list(batch_uploaded_files or [])
     st.caption("Select multiple files at once using Command + click on Mac or Ctrl + click on Windows.")
 
+    ensure_batch_file_store()
+
+    render_section_title("Or Add Resumes One At A Time")
+    single_batch_file = st.file_uploader(
+        "Add one resume to batch",
+        type=["pdf", "docx", "txt"],
+        key="single_batch_resume_upload",
+    )
+    add_col, clear_col = st.columns([0.5, 0.5], gap="medium")
+    with add_col:
+        if st.button("Add Resume to Batch"):
+            if single_batch_file is None:
+                render_alert_banner("Choose one resume before adding it to the batch.", "warning")
+            else:
+                added_count = store_files_for_batch([single_batch_file])
+                if added_count == 0:
+                    render_alert_banner("This file is already added to the batch.", "warning")
+                else:
+                    st.success(f"{single_batch_file.name} added to the batch list.")
+    with clear_col:
+        if st.button("Clear Batch List"):
+            st.session_state["batch_file_store"] = []
+            st.session_state["batch_ranking_rows"] = []
+            st.info("Batch list cleared.")
+
+    stored_batch_files = [
+        StoredUploadedFile(item.get("name", "Candidate"), item.get("type", ""), item.get("bytes", b""))
+        for item in st.session_state.get("batch_file_store", [])
+    ]
+    batch_files = []
+    seen_batch_names = set()
+    for file in list(batch_uploaded_files or []) + stored_batch_files:
+        file_name = getattr(file, "name", "")
+        if file_name in seen_batch_names:
+            continue
+        batch_files.append(file)
+        seen_batch_names.add(file_name)
+
     if batch_files:
-        st.success(f"{len(batch_files)} resume file(s) selected for batch ranking.")
-        with st.expander("Selected files"):
+        st.success(f"{len(batch_files)} resume file(s) ready for batch ranking.")
+        st.markdown("##### Batch files ready:")
+        with st.expander("Selected batch files"):
             for file in batch_files:
                 st.write(f"- {file.name}")
     else:
         st.info(
-            "No batch resumes selected yet. You can select multiple files using Command + click on Mac, "
-            "or drag multiple files into the uploader."
+            "No batch resumes selected yet. Select multiple files at once or add resumes one at a time."
         )
 
     if not job_description.strip():
@@ -850,11 +934,22 @@ top_left, top_right = st.columns([1.18, 0.82], gap="large")
 with top_left:
     st.markdown('<div class="panel-card">', unsafe_allow_html=True)
     st.markdown('<div class="section-label">1) Upload Resume</div>', unsafe_allow_html=True)
-    uploaded_file = st.file_uploader(
-        "Upload a resume in PDF, TXT, or DOCX format",
+    main_uploaded_files = st.file_uploader(
+        "Upload one or more resumes in PDF, TXT, or DOCX format",
         type=SUPPORTED_FILE_TYPES,
+        accept_multiple_files=True,
         label_visibility="collapsed",
+        key="main_resume_uploads",
     )
+    main_uploaded_files = list(main_uploaded_files or [])
+    uploaded_file = main_uploaded_files[0] if main_uploaded_files else None
+    if main_uploaded_files:
+        store_files_for_batch(main_uploaded_files)
+    if len(main_uploaded_files) > 1:
+        st.info(
+            f"{len(main_uploaded_files)} resumes uploaded. The first resume will be used for the single-resume "
+            "analysis. All uploaded resumes are available for Batch Ranking."
+        )
     st.caption("Best results come from text-based PDFs or DOCX files rather than scanned-image PDFs.")
     st.markdown("</div>", unsafe_allow_html=True)
 
