@@ -27,6 +27,15 @@ from src.jd_matcher import analyze_job_description_match, get_match_feedback
 from src.prediction_service import get_top_predictions as get_model_top_predictions
 from src.prediction_service import load_model_artifacts, predict_resume_role
 from src.preprocessing import preprocess_resume_text
+from src.recruiter_workflow import (
+    build_review_records,
+    convert_review_records_to_csv,
+    get_default_review_status,
+    get_review_status_options,
+    get_review_summary,
+    get_review_summary_cards,
+    make_review_key,
+)
 from src.report_builder import build_resume_improvement_report, get_report_summary_cards
 from src.resume_parser import is_supported_file, parse_resume
 from src.resume_structure_advisor import build_structure_advice, get_structure_summary_cards
@@ -328,6 +337,102 @@ def render_candidate_fit_section(candidate_fit_result: dict, role_profile_summar
     render_alert_banner(candidate_fit_result.get("disclaimer", ""), "info")
 
 
+def render_recruiter_workflow_section(ranked_rows: list[dict]) -> None:
+    render_section_title(
+        "Recruiter Notes & Shortlist Workflow",
+        "Add manual review statuses and notes for each ranked resume.",
+    )
+    st.write(
+        "Add manual review statuses and notes for each ranked resume. These notes are stored locally "
+        "in this session and can be exported as CSV."
+    )
+
+    if "recruiter_review_state" not in st.session_state:
+        st.session_state["recruiter_review_state"] = {}
+
+    if not ranked_rows:
+        render_empty_state(
+            "Run Batch Ranking first",
+            "Run Batch Ranking first to add recruiter notes and shortlist statuses.",
+        )
+        return
+
+    status_options = get_review_status_options()
+    for row in ranked_rows:
+        review_key = make_review_key(row)
+        saved_review = st.session_state["recruiter_review_state"].get(review_key, {})
+        current_status = saved_review.get("status", get_default_review_status(row))
+        if current_status not in status_options:
+            current_status = get_default_review_status(row)
+        current_note = saved_review.get("note", "")
+
+        with st.expander(f"{row.get('Rank')}. {row.get('Candidate')}"):
+            score_col, label_col, recommendation_col = st.columns(3, gap="medium")
+            with score_col:
+                render_metric_card("Overall Fit Score", f"{row.get('Overall Fit Score', 0)}%", "Batch fit signal")
+            with label_col:
+                render_metric_card("Fit Label", row.get("Fit Label", "Not available"), "Local fit interpretation")
+            with recommendation_col:
+                render_metric_card(
+                    "Recommendation",
+                    row.get("Recommendation", "Not available"),
+                    "Decision-support recommendation",
+                )
+
+            actions_text = row.get("Priority Actions", "")
+            actions = [item.strip() for item in actions_text.split("|") if item.strip()]
+            st.markdown("##### Priority Actions")
+            if actions:
+                for action in actions:
+                    st.markdown(f"- {action}")
+            else:
+                st.write("No priority actions available.")
+
+            status = st.selectbox(
+                "Manual Review Status",
+                options=status_options,
+                index=status_options.index(current_status),
+                key=f"review_status_{review_key}",
+            )
+            note = st.text_area(
+                "Recruiter/user note",
+                value=current_note,
+                key=f"review_note_{review_key}",
+                placeholder="Add session-local review notes here...",
+            )
+            st.session_state["recruiter_review_state"][review_key] = {
+                "status": status,
+                "note": note,
+            }
+
+    review_records = build_review_records(ranked_rows, st.session_state["recruiter_review_state"])
+    review_summary = get_review_summary(review_records)
+    st.write(review_summary.get("main_message", ""))
+
+    review_cards = get_review_summary_cards(review_summary)
+    review_columns = st.columns(len(review_cards), gap="medium")
+    for column, card in zip(review_columns, review_cards):
+        with column:
+            render_metric_card(card.get("title", ""), card.get("value", ""), card.get("helper_text", ""))
+
+    review_csv = convert_review_records_to_csv(review_records)
+    csv_col, clear_col = st.columns([0.58, 0.42], gap="medium")
+    with csv_col:
+        st.download_button(
+            "Download Recruiter Review CSV",
+            data=review_csv,
+            file_name="resumeiq_recruiter_review.csv",
+            mime="text/csv",
+        )
+    with clear_col:
+        if st.button("Clear Recruiter Notes"):
+            st.session_state["recruiter_review_state"] = {}
+            for key in list(st.session_state.keys()):
+                if key.startswith("review_status_") or key.startswith("review_note_"):
+                    del st.session_state[key]
+            st.rerun()
+
+
 def render_batch_ranking_section(job_description: str) -> None:
     render_section_title(
         "Batch Resume Ranking",
@@ -462,6 +567,10 @@ def render_batch_ranking_section(job_description: str) -> None:
                             st.markdown(f"- {action}")
                     else:
                         st.write("No priority actions available.")
+
+        render_recruiter_workflow_section(ranked_rows)
+    else:
+        render_recruiter_workflow_section([])
 
 
 def render_ats_section(ats_result: dict, has_job_description: bool) -> None:
