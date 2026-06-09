@@ -16,6 +16,7 @@ from src.jd_matcher import analyze_job_description_match, get_match_feedback
 from src.prediction_service import get_top_predictions as get_model_top_predictions
 from src.prediction_service import load_model_artifacts, predict_resume_role
 from src.preprocessing import preprocess_resume_text
+from src.report_builder import build_resume_improvement_report, get_report_summary_cards
 from src.resume_parser import is_supported_file, parse_resume
 from src.rewrite_suggestions import generate_rewrite_suggestions, get_rewrite_summary
 from src.sentence_quality import detect_ai_like_sentences
@@ -161,6 +162,41 @@ def render_analysis_overview(
         st.write("Focus resume improvement on the missing skills and tailor project descriptions around the target role.")
     else:
         st.write("The candidate already aligns well. The next step is strengthening achievement-based bullet points.")
+
+
+def render_resume_improvement_report(report: dict) -> None:
+    render_section_title(
+        "Resume Improvement Report",
+        "A local, rule-based action plan built from existing ResumeIQ analysis results.",
+    )
+    st.write(report.get("overall_summary", ""))
+
+    cards = get_report_summary_cards(report)
+    card_columns = st.columns(len(cards), gap="medium")
+    for column, card in zip(card_columns, cards):
+        with column:
+            render_metric_card(
+                card.get("title", ""),
+                card.get("value", ""),
+                card.get("helper_text", ""),
+            )
+
+    strengths_col, risks_col = st.columns(2, gap="large")
+    with strengths_col:
+        render_section_title("Strengths")
+        for strength in report.get("strengths", []):
+            st.markdown(f"- {strength}")
+
+    with risks_col:
+        render_section_title("Risks")
+        for risk in report.get("risks", []):
+            st.markdown(f"- {risk}")
+
+    render_section_title("Priority Actions")
+    for action in report.get("priority_actions", []):
+        st.markdown(f"- {action}")
+
+    render_alert_banner(report.get("disclaimer", ""), "info")
 
 
 def render_ats_section(ats_result: dict, has_job_description: bool) -> None:
@@ -481,6 +517,21 @@ else:
             extracted_skills=resume_skills,
             max_results=10,
         )
+        flagged_sentences = sentence_quality_result.get("flagged_sentences", [])
+        rewrite_suggestions = generate_rewrite_suggestions(flagged_sentences, max_suggestions=8)
+        rewrite_summary = get_rewrite_summary(rewrite_suggestions)
+        report_prediction = {
+            "role": predicted_role,
+            "confidence_display": confidence_display,
+        }
+        resume_improvement_report = build_resume_improvement_report(
+            prediction_result=report_prediction,
+            ats_result=ats_result,
+            jd_match_result=match_analysis,
+            sentence_quality_result=sentence_quality_result,
+            rewrite_suggestions=rewrite_suggestions,
+            parser_result=parser_result,
+        )
 
         (
             overview_tab,
@@ -513,6 +564,7 @@ else:
                 extra_count=extra_count,
                 gap=gap,
             )
+            render_resume_improvement_report(resume_improvement_report)
 
         with ats_tab:
             render_ats_section(ats_result, bool(job_description.strip()))
@@ -567,9 +619,6 @@ else:
                 "Humanized Rewrite Suggestions",
                 "These suggestions are local and template-based. They do not invent achievements. Replace placeholders with your real details.",
             )
-            flagged_sentences = sentence_quality_result.get("flagged_sentences", [])
-            rewrite_suggestions = generate_rewrite_suggestions(flagged_sentences, max_suggestions=8)
-            rewrite_summary = get_rewrite_summary(rewrite_suggestions)
 
             if not rewrite_suggestions:
                 render_empty_state(
