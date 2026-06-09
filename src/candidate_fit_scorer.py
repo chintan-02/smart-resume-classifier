@@ -61,6 +61,16 @@ def _score_label(score: float) -> str:
     return "Needs Improvement"
 
 
+def _skill_score_label(score: float) -> str:
+    if score >= 75:
+        return "Strong"
+    if score >= 60:
+        return "Good"
+    if score >= 40:
+        return "Partial"
+    return "Needs Improvement"
+
+
 def calculate_skill_score(jd_match_result=None, skill_taxonomy_result=None) -> dict:
     jd_match_result = jd_match_result if isinstance(jd_match_result, dict) else {}
     skill_taxonomy_result = skill_taxonomy_result if isinstance(skill_taxonomy_result, dict) else {}
@@ -76,16 +86,28 @@ def calculate_skill_score(jd_match_result=None, skill_taxonomy_result=None) -> d
         if isinstance(item, dict) and safe_get(item, "missing_count", 0) > 0
     )
 
-    match_score = normalize_score(safe_get(jd_match_result, "match_score", 0))
-    if not match_score and (matched_skills or missing_skills):
+    matched_count = len(matched_skills)
+    missing_count = len(missing_skills)
+
+    raw_match_score = safe_get(jd_match_result, "match_score")
+    match_score = normalize_score(raw_match_score, 0)
+    if raw_match_score is None and (matched_skills or missing_skills):
         total_target_skills = len(matched_skills) + len(missing_skills)
         match_score = (len(matched_skills) / total_target_skills) * 100 if total_target_skills else 0
 
     score = match_score
-    score -= min(len(missing_skills), 8) * 2.0
-    score -= min(category_gap_count, 5) * 3.0
+    score -= min(missing_count, 12) * 0.8
+    score -= min(category_gap_count, 5) * 2.0
     if matched_skills:
-        score += min(len(matched_skills), 6) * 1.5
+        score += min(matched_count, 8) * 1.2
+
+    if matched_count >= 10:
+        score = max(score, 45)
+    elif matched_count >= 5:
+        score = max(score, 30)
+    elif matched_count >= 3:
+        score = max(score, 20)
+
     score = normalize_score(score)
 
     signals = []
@@ -103,7 +125,7 @@ def calculate_skill_score(jd_match_result=None, skill_taxonomy_result=None) -> d
 
     return {
         "score": round(score, 1),
-        "label": _score_label(score),
+        "label": _skill_score_label(score),
         "signals": signals[:4],
         "risks": risks[:4],
     }
@@ -267,7 +289,7 @@ def _recommendation_for_label(label: str) -> str:
         return "Recommended for review"
     if label == "Partial Fit":
         return "Review after targeted resume improvements"
-    return "Needs resume improvement before applying"
+    return "Needs targeted resume improvement before applying"
 
 
 def _component(name: str, score: float, weight: float, label: str, reason: str) -> dict:
