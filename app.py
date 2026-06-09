@@ -26,6 +26,7 @@ from src.candidate_fit_scorer import build_candidate_fit_score, get_candidate_fi
 from src.jd_matcher import analyze_job_description_match, get_match_feedback
 from src.prediction_service import get_top_predictions as get_model_top_predictions
 from src.prediction_service import load_model_artifacts, predict_resume_role
+from src.prediction_explainer import build_prediction_explanation, get_prediction_explanation_cards
 from src.preprocessing import preprocess_resume_text
 from src.recruiter_workflow import (
     build_review_records,
@@ -431,6 +432,46 @@ def render_recruiter_workflow_section(ranked_rows: list[dict]) -> None:
                 if key.startswith("review_status_") or key.startswith("review_note_"):
                     del st.session_state[key]
             st.rerun()
+
+
+def render_prediction_explanation_section(prediction_explanation: dict) -> None:
+    render_section_title(
+        "Prediction Explainability",
+        "Local explanation for the current baseline role classifier.",
+    )
+
+    cards = get_prediction_explanation_cards(prediction_explanation)
+    card_columns = st.columns(len(cards), gap="medium")
+    for column, card in zip(card_columns, cards):
+        with column:
+            render_metric_card(card.get("title", ""), card.get("value", ""), card.get("helper_text", ""))
+
+    confidence = prediction_explanation.get("confidence", {}) or {}
+    if confidence.get("message"):
+        render_alert_banner(confidence.get("message"), "info")
+
+    supporting_terms = prediction_explanation.get("supporting_terms", [])
+    if supporting_terms:
+        st.markdown("##### Supporting terms")
+        terms_df = pd.DataFrame(supporting_terms)
+        st.dataframe(terms_df, width="stretch", hide_index=True)
+        render_badge_group([item.get("term", "") for item in supporting_terms])
+    else:
+        render_empty_state(
+            "Prediction explanation unavailable",
+            "Prediction explanation is unavailable for the current model artifact, but confidence interpretation is still shown.",
+        )
+
+    if prediction_explanation.get("message"):
+        st.write(prediction_explanation.get("message"))
+
+    warnings = prediction_explanation.get("warnings", [])
+    if warnings:
+        render_section_title("Interpretation Notes")
+        for warning in warnings:
+            render_alert_banner(warning, "warning")
+
+    render_alert_banner(prediction_explanation.get("disclaimer", ""), "info")
 
 
 def render_batch_ranking_section(job_description: str) -> None:
@@ -1163,6 +1204,13 @@ else:
         if not top_predictions.empty:
             confidence_display = f"{top_predictions.iloc[0]['Confidence %']:.2f}%"
 
+        prediction_explanation = build_prediction_explanation(
+            resume_text=resume_text,
+            prediction_result=prediction,
+            model_or_pipeline=model,
+            top_n=12,
+        )
+
         target_role = infer_target_role(predicted_role=predicted_role, job_description=job_description)
         role_profile = get_role_profile(target_role)
         role_profile_summary = get_role_profile_summary(role_profile)
@@ -1268,6 +1316,12 @@ else:
                     "Semantic Match Score",
                     f"{semantic_result.get('semantic_score')}%",
                     "Meaning-based JD/resume alignment",
+                )
+            explanation_confidence = prediction_explanation.get("confidence", {})
+            if explanation_confidence.get("confidence_label") in {"Low", "Very Low"}:
+                render_alert_banner(
+                    "Model confidence is low; use the combined fit signals instead of relying only on the predicted role.",
+                    "warning",
                 )
             render_candidate_fit_section(candidate_fit_result, role_profile_summary)
             render_resume_improvement_report(resume_improvement_report)
@@ -1445,6 +1499,8 @@ else:
                 "TF-IDF Vectorizer (1-2 grams, English stop words) -> Logistic Regression",
                 language="text",
             )
+
+            render_prediction_explanation_section(prediction_explanation)
 
             st.markdown("##### Prediction probabilities")
             if not top_predictions.empty:
