@@ -20,6 +20,7 @@ from src.report_builder import build_resume_improvement_report, get_report_summa
 from src.resume_parser import is_supported_file, parse_resume
 from src.resume_structure_advisor import build_structure_advice, get_structure_summary_cards
 from src.rewrite_suggestions import generate_rewrite_suggestions, get_rewrite_summary
+from src.semantic_matcher import build_semantic_match_result, get_semantic_summary_cards
 from src.sentence_quality import detect_ai_like_sentences
 from src.skill_taxonomy import compare_skill_categories, get_skill_taxonomy_summary
 from src.skill_extractor import (
@@ -235,7 +236,7 @@ def render_ats_section(ats_result: dict, has_job_description: bool) -> None:
                 "Score": [(ats_result.get("breakdown") or {}).get(key, 0) for key in breakdown_labels],
             }
         )
-        st.dataframe(breakdown_df, use_container_width=True, hide_index=True)
+        st.dataframe(breakdown_df, width="stretch", hide_index=True)
 
         left, right = st.columns(2, gap="large")
         with left:
@@ -422,7 +423,7 @@ def render_skill_taxonomy_breakdown(taxonomy_result: dict) -> None:
     render_alert_banner(summary.get("top_gap_message", ""), "warning")
 
     st.markdown("##### Category summary")
-    st.dataframe(pd.DataFrame(category_summary), use_container_width=True, hide_index=True)
+    st.dataframe(pd.DataFrame(category_summary), width="stretch", hide_index=True)
 
     categorized_cols = st.columns(3, gap="large")
     categorized_groups = [
@@ -442,6 +443,62 @@ def render_skill_taxonomy_breakdown(taxonomy_result: dict) -> None:
 
     if taxonomy_result.get("top_gap_categories"):
         render_alert_banner("Add missing skills only if they reflect your real experience.", "info")
+
+
+def render_semantic_match_section(semantic_result: dict) -> None:
+    render_section_title(
+        "Semantic JD-Resume Match",
+        "Meaning-based similarity between the resume and target job description.",
+    )
+
+    if not semantic_result.get("available"):
+        render_alert_banner(semantic_result.get("message", "Semantic matching is unavailable."), "warning")
+        render_alert_banner(semantic_result.get("disclaimer", ""), "info")
+        return
+
+    score_col, label_col = st.columns([0.45, 0.55], gap="medium")
+    with score_col:
+        render_score_summary(
+            "Semantic Match Score",
+            semantic_result.get("semantic_score"),
+            helper_text="Meaning-based JD/resume alignment",
+        )
+    with label_col:
+        render_metric_card(
+            "Similarity Label",
+            semantic_result.get("similarity_label", "Unavailable"),
+            semantic_result.get("message", ""),
+        )
+
+    summary_cards = get_semantic_summary_cards(semantic_result)
+    summary_cols = st.columns(len(summary_cards), gap="medium")
+    for column, card in zip(summary_cols, summary_cards):
+        with column:
+            render_metric_card(card.get("title", ""), card.get("value", ""), card.get("helper_text", ""))
+
+    top_pairs = semantic_result.get("top_matching_pairs", [])
+    if top_pairs:
+        render_section_title("Top Matching Pairs")
+        for index, pair in enumerate(top_pairs, start=1):
+            with st.expander(f"{index}. Similarity {pair.get('similarity', 0)}", expanded=index == 1):
+                st.markdown("##### Resume evidence")
+                st.write(pair.get("resume_chunk", ""))
+                st.markdown("##### Job description requirement")
+                st.write(pair.get("jd_chunk", ""))
+
+    weak_chunks = semantic_result.get("weak_jd_chunks", [])
+    if weak_chunks:
+        render_section_title("Weak JD Coverage Areas")
+        for index, item in enumerate(weak_chunks, start=1):
+            with st.expander(f"{index}. Best similarity {item.get('best_similarity', 0)}", expanded=False):
+                st.markdown("##### JD requirement")
+                st.write(item.get("jd_chunk", ""))
+                st.markdown("##### Recommendation")
+                st.write(item.get("recommendation", ""))
+    else:
+        render_alert_banner("No weak JD chunks detected by semantic matching.", "success")
+
+    render_alert_banner(semantic_result.get("disclaimer", ""), "info")
 
 
 def summarize_detected_sections(sections: dict) -> dict:
@@ -631,6 +688,7 @@ else:
             missing_skills=gap.get("missing", []),
             extra_skills=gap.get("extra", []),
         )
+        semantic_result = build_semantic_match_result(resume_text, job_description)
         ats_result = calculate_ats_score(
             resume_text=resume_text,
             job_description=job_description,
@@ -694,6 +752,12 @@ else:
                 extra_count=extra_count,
                 gap=gap,
             )
+            if semantic_result.get("available"):
+                render_metric_card(
+                    "Semantic Match Score",
+                    f"{semantic_result.get('semantic_score')}%",
+                    "Meaning-based JD/resume alignment",
+                )
             render_resume_improvement_report(resume_improvement_report)
 
         with ats_tab:
@@ -715,6 +779,8 @@ else:
                 render_badge_group(gap.get("missing", []))
             else:
                 render_alert_banner("Paste a job description to unlock matched and missing skill analysis.", "info")
+
+            render_semantic_match_section(semantic_result)
 
         with quality_tab:
             template_message = template_detection.get("warning")
@@ -865,7 +931,7 @@ else:
             if not top_predictions.empty:
                 chart_df = top_predictions.set_index("Role")
                 st.bar_chart(chart_df["Confidence %"])
-                st.dataframe(top_predictions, use_container_width=True, hide_index=True)
+                st.dataframe(top_predictions, width="stretch", hide_index=True)
             else:
                 st.write("Probability output is not available for this classifier.")
 
@@ -884,7 +950,7 @@ else:
                     }
                 )
                 st.bar_chart(analytics_df.set_index("Metric"))
-                st.dataframe(analytics_df, use_container_width=True, hide_index=True)
+                st.dataframe(analytics_df, width="stretch", hide_index=True)
 
 st.markdown(
     '<div class="footer-note">Built with Streamlit, scikit-learn, pandas, and pypdf. Designed as a portfolio-grade NLP + ML dashboard and ready for GitHub + Azure deployment.</div>',
