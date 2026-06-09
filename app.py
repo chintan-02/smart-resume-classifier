@@ -21,6 +21,7 @@ from src.resume_parser import is_supported_file, parse_resume
 from src.resume_structure_advisor import build_structure_advice, get_structure_summary_cards
 from src.rewrite_suggestions import generate_rewrite_suggestions, get_rewrite_summary
 from src.sentence_quality import detect_ai_like_sentences
+from src.skill_taxonomy import compare_skill_categories, get_skill_taxonomy_summary
 from src.skill_extractor import (
     load_skills,
 )
@@ -376,6 +377,73 @@ def render_structure_advisor(advice: dict) -> None:
     render_alert_banner(advice.get("disclaimer", ""), "info")
 
 
+def render_skill_taxonomy_breakdown(taxonomy_result: dict) -> None:
+    render_section_title(
+        "Skill Taxonomy Breakdown",
+        "Category-level skill intelligence for understanding alignment with the target role.",
+    )
+    summary = get_skill_taxonomy_summary(taxonomy_result)
+    category_summary = taxonomy_result.get("category_summary", [])
+
+    if not category_summary:
+        render_empty_state(
+            "No categorized skills yet",
+            "Upload a resume and paste a job description to view skill taxonomy.",
+        )
+        return
+
+    metric_cols = st.columns(4, gap="medium")
+    with metric_cols[0]:
+        render_metric_card(
+            "Resume Categories",
+            summary.get("total_resume_categories", 0),
+            "Skill categories detected in the resume",
+        )
+    with metric_cols[1]:
+        render_metric_card(
+            "Gap Categories",
+            summary.get("total_gap_categories", 0),
+            "Category-level gaps from the target role",
+        )
+    with metric_cols[2]:
+        render_metric_card(
+            "Strength Categories",
+            len(taxonomy_result.get("top_strength_categories", [])),
+            "Categories with matched skills",
+        )
+    with metric_cols[3]:
+        render_metric_card(
+            "Missing Categories",
+            len(taxonomy_result.get("top_gap_categories", [])),
+            "Categories with missing skills",
+        )
+
+    render_alert_banner(summary.get("top_strength_message", ""), "info")
+    render_alert_banner(summary.get("top_gap_message", ""), "warning")
+
+    st.markdown("##### Category summary")
+    st.dataframe(pd.DataFrame(category_summary), use_container_width=True, hide_index=True)
+
+    categorized_cols = st.columns(3, gap="large")
+    categorized_groups = [
+        ("Categorized Resume Skills", taxonomy_result.get("resume_categories", {})),
+        ("Categorized Matched Skills", taxonomy_result.get("matched_categories", {})),
+        ("Categorized Missing Skills", taxonomy_result.get("missing_categories", {})),
+    ]
+    for column, (title, categories) in zip(categorized_cols, categorized_groups):
+        with column:
+            render_section_title(title)
+            if not categories:
+                st.write("None detected.")
+                continue
+            for category, skills in categories.items():
+                st.markdown(f"##### {category}")
+                render_badge_group(skills)
+
+    if taxonomy_result.get("top_gap_categories"):
+        render_alert_banner("Add missing skills only if they reflect your real experience.", "info")
+
+
 def summarize_detected_sections(sections: dict) -> dict:
     return {
         section_name: bool(section_text.strip())
@@ -556,6 +624,13 @@ else:
         matched_count = len(gap["matched"])
         missing_count = len(gap["missing"])
         extra_count = len(gap["extra"])
+        skill_taxonomy_result = compare_skill_categories(
+            resume_skills=resume_skills,
+            jd_skills=jd_skills,
+            matched_skills=gap.get("matched", []),
+            missing_skills=gap.get("missing", []),
+            extra_skills=gap.get("extra", []),
+        )
         ats_result = calculate_ats_score(
             resume_text=resume_text,
             job_description=job_description,
@@ -669,6 +744,8 @@ else:
 
                 st.markdown("##### Extra resume skills")
                 render_badge_group(gap.get("extra", []))
+
+            render_skill_taxonomy_breakdown(skill_taxonomy_result)
 
         with rewrite_tab:
             render_section_title(
