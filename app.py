@@ -18,6 +18,7 @@ from src.prediction_service import load_model_artifacts, predict_resume_role
 from src.preprocessing import preprocess_resume_text
 from src.report_builder import build_resume_improvement_report, get_report_summary_cards
 from src.resume_parser import is_supported_file, parse_resume
+from src.resume_structure_advisor import build_structure_advice, get_structure_summary_cards
 from src.rewrite_suggestions import generate_rewrite_suggestions, get_rewrite_summary
 from src.sentence_quality import detect_ai_like_sentences
 from src.skill_extractor import (
@@ -322,6 +323,59 @@ def render_sentence_quality_section(sentence_quality_result: dict) -> None:
             )
 
 
+def render_structure_advisor(advice: dict) -> None:
+    render_section_title(
+        "Resume Structure & Format Advisor",
+        "Local, rule-based suggestions for resume sections, bullets, formatting, and recruiter readability.",
+    )
+    st.write(advice.get("overall_message", ""))
+
+    cards = get_structure_summary_cards(advice)
+    card_columns = st.columns(len(cards), gap="medium")
+    for column, card in zip(card_columns, cards):
+        with column:
+            render_metric_card(
+                card.get("title", ""),
+                card.get("value", ""),
+                card.get("helper_text", ""),
+            )
+
+    order_col, formula_col = st.columns(2, gap="large")
+    with order_col:
+        render_section_title("Suggested Section Order")
+        for index, section in enumerate(advice.get("recommended_section_order", []), start=1):
+            st.markdown(f"{index}. {section}")
+
+    with formula_col:
+        render_section_title("Recommended Bullet Formula")
+        render_alert_banner(advice.get("recommended_bullet_formula", ""), "info")
+
+        example = advice.get("example_before_after", {})
+        st.markdown("##### Example before")
+        st.write(example.get("before", ""))
+        st.markdown("##### Suggested template")
+        st.write(example.get("after", ""))
+
+    render_section_title("Findings")
+    findings = advice.get("findings", [])
+    if not findings:
+        render_alert_banner("No major structure findings detected. Review section labels and bullets for clarity before applying.", "success")
+    else:
+        for index, finding in enumerate(findings, start=1):
+            with st.expander(f"{index}. {finding.get('issue', 'Structure finding')}", expanded=index == 1):
+                st.write(f"Severity: {finding.get('severity', 'info')}")
+                st.markdown("##### Why it matters")
+                st.write(finding.get("why_it_matters", ""))
+                st.markdown("##### Recommendation")
+                st.write(finding.get("recommendation", ""))
+
+    render_section_title("Priority Fixes")
+    for fix in advice.get("priority_fixes", []):
+        st.markdown(f"- {fix}")
+
+    render_alert_banner(advice.get("disclaimer", ""), "info")
+
+
 def summarize_detected_sections(sections: dict) -> dict:
     return {
         section_name: bool(section_text.strip())
@@ -517,6 +571,7 @@ else:
             extracted_skills=resume_skills,
             max_results=10,
         )
+        structure_advice = build_structure_advice(parser_result=parser_result, resume_text=resume_text)
         flagged_sentences = sentence_quality_result.get("flagged_sentences", [])
         rewrite_suggestions = generate_rewrite_suggestions(flagged_sentences, max_suggestions=8)
         rewrite_summary = get_rewrite_summary(rewrite_suggestions)
@@ -593,6 +648,7 @@ else:
             elif template_severity == "partial" and template_message:
                 render_alert_banner(template_message, "info")
             render_sentence_quality_section(sentence_quality_result)
+            render_structure_advisor(structure_advice)
 
         with skills_tab:
             render_section_title(
