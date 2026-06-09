@@ -57,11 +57,15 @@ from src.skill_extractor import (
 from src.ui.ui_components import (
     render_alert_banner,
     render_badge_group,
+    render_disclaimer_box,
     render_empty_state,
-    render_hero,
+    render_feature_placeholder_card,
+    render_navigation_section_title,
+    render_page_header,
     render_metric_card,
     render_score_summary,
     render_section_title,
+    render_workflow_status,
 )
 from src.ui.ui_styles import apply_global_styles
 
@@ -951,6 +955,268 @@ def render_semantic_match_section(semantic_result: dict, privacy_mode: bool = Fa
     render_alert_banner(semantic_result.get("disclaimer", ""), "info")
 
 
+def render_jd_keyword_match_section(match_score, matched_count, missing_count, gap) -> None:
+    render_section_title("JD Keyword Match", "Skill overlap between the resume and target job description.")
+
+    jm1, jm2, jm3 = st.columns(3, gap="medium")
+    with jm1:
+        render_score_summary("JD Match Percentage", f"{match_score:.2%}", helper_text="Resume/JD skill overlap")
+    with jm2:
+        render_metric_card("Matched Skills", matched_count, "Skills found in both resume and JD")
+    with jm3:
+        render_metric_card("Missing Skills", missing_count, "JD skills not detected in resume")
+
+    st.markdown("##### Matched skills")
+    render_badge_group(gap.get("matched", []))
+    st.markdown("##### Missing skills")
+    render_badge_group(gap.get("missing", []))
+
+
+def render_skills_intelligence_section(resume_skills, gap, role_profile_summary, skill_taxonomy_result) -> None:
+    render_section_title(
+        "Skills Intelligence",
+        "Extracted resume skills, target-job overlap, missing skills, and role-specific skill categories.",
+    )
+    if role_profile_summary.get("priority_categories"):
+        st.write("Priority categories for this role:")
+        render_badge_group(role_profile_summary.get("priority_categories", []))
+
+    skill_cols = st.columns(2, gap="large")
+    with skill_cols[0]:
+        st.markdown("##### Resume skills")
+        render_badge_group(resume_skills)
+
+        st.markdown("##### Matched skills")
+        render_badge_group(gap.get("matched", []))
+
+    with skill_cols[1]:
+        st.markdown("##### Missing skills")
+        render_badge_group(gap.get("missing", []))
+
+        st.markdown("##### Extra resume skills")
+        render_badge_group(gap.get("extra", []))
+
+    render_skill_taxonomy_breakdown(skill_taxonomy_result)
+
+
+def render_rewrite_suggestions_section(rewrite_suggestions, rewrite_summary) -> None:
+    render_section_title(
+        "Humanized Rewrite Suggestions",
+        "Local, template-based suggestions. They do not invent achievements; replace placeholders with real details.",
+    )
+
+    if not rewrite_suggestions:
+        render_empty_state(
+            "No rewrite suggestions yet",
+            "ResumeIQ generates rewrite suggestions when it finds generic, vague, or AI-like sentences.",
+        )
+        return
+
+    summary_col, pattern_col = st.columns([0.42, 0.58], gap="medium")
+    with summary_col:
+        render_metric_card(
+            "Total Suggestions",
+            rewrite_summary.get("total_suggestions", 0),
+            "Template-based suggestions from flagged sentences",
+        )
+    with pattern_col:
+        render_section_title("Top Issue Patterns")
+        render_badge_group(rewrite_summary.get("top_patterns", []))
+
+    render_alert_banner(rewrite_summary.get("priority_message", ""), "info")
+
+    for index, suggestion in enumerate(rewrite_suggestions, start=1):
+        with st.expander(f"{index}. {suggestion.get('issue', 'Rewrite suggestion')}", expanded=index == 1):
+            st.markdown("##### Original sentence")
+            st.write(suggestion.get("original_sentence", ""))
+
+            st.markdown("##### Issue")
+            st.write(suggestion.get("issue", ""))
+
+            st.markdown("##### Why it may be weak")
+            st.write(suggestion.get("why_weak", ""))
+
+            st.markdown("##### Suggested rewrite template")
+            st.write(suggestion.get("suggested_rewrite", ""))
+
+            st.markdown("##### Stronger resume version")
+            st.write(suggestion.get("stronger_resume_version", ""))
+
+            st.markdown("##### Rewrite tip")
+            st.write(suggestion.get("rewrite_tip", ""))
+
+
+def render_resume_preview_section(parser_result, resume_text, job_description, template_detection, template_severity, privacy_mode) -> None:
+    render_section_title(
+        "Resume Preview",
+        "Extracted text and parser details used by the current analysis pipeline.",
+    )
+    st.markdown("##### Extracted resume text")
+    preview_candidate_name = get_candidate_name_from_parser(parser_result)
+    display_resume_text = resume_text
+    if privacy_mode:
+        render_alert_banner(
+            "Privacy-safe display mode is enabled. Extracted resume text is masked for review.",
+            "info",
+        )
+        display_resume_text = mask_pii(resume_text, candidate_name=preview_candidate_name)
+    st.text_area("Resume text", display_resume_text[:8000], height=320, label_visibility="collapsed")
+
+    with st.expander("Parser details", expanded=False):
+        sections = parser_result.get("sections", {})
+        if sections:
+            st.markdown("##### Detected sections")
+            st.json(summarize_detected_sections(sections))
+
+        contact_info = parser_result.get("contact_info")
+        if contact_info:
+            st.markdown("##### Contact summary")
+            if privacy_mode:
+                st.json(
+                    {
+                        "email": "[email]" if contact_info.get("email") else None,
+                        "phone": "[phone]" if contact_info.get("phone") else None,
+                        "linkedin": "[linkedin]" if contact_info.get("linkedin") else None,
+                        "github": "[github]" if contact_info.get("github") else None,
+                        "portfolio": "[portfolio]" if contact_info.get("portfolio") else None,
+                    }
+                )
+            else:
+                st.json(contact_info)
+
+        st.markdown("##### Estimated years of experience")
+        years = parser_result.get("estimated_years_experience")
+        st.write(f"{years} years" if years is not None else "Not detected")
+
+        if template_detection:
+            st.markdown("##### Template detection")
+            if template_severity == "strong" and template_detection.get("warning"):
+                st.warning(template_detection.get("warning"))
+            elif template_severity == "partial" and template_detection.get("warning"):
+                st.info(template_detection.get("warning"))
+            st.write(
+                {
+                    "template_score": template_detection.get("template_score"),
+                    "severity": template_detection.get("severity", "none"),
+                    "matched_placeholders": template_detection.get("matched_placeholders", []),
+                    "real_content_signals": template_detection.get("real_content_signals", []),
+                }
+            )
+
+        parsed_items = {
+            "education": parser_result.get("education"),
+            "experience": parser_result.get("experience"),
+            "projects": parser_result.get("projects"),
+            "certifications": parser_result.get("certifications"),
+        }
+        available_items = {key: value for key, value in parsed_items.items() if value}
+        if available_items:
+            st.markdown("##### Parsed resume items")
+            st.write(available_items)
+
+    if job_description.strip():
+        st.markdown("##### Job description text")
+        st.text_area("Job description text", job_description[:5000], height=220, label_visibility="collapsed")
+
+
+def render_model_transparency_section(prediction_explanation, top_predictions, metrics, clean_classes, jd_skills, matched_count, missing_count, extra_count) -> None:
+    render_section_title(
+        "Model Transparency",
+        "Baseline classifier metadata, explainability, probabilities, and evaluation warnings.",
+    )
+    render_alert_banner(
+        "The current baseline model is useful for demonstration, but the 100% validation accuracy and low real-resume confidence should be investigated later with stronger evaluation, calibration, and model comparison.",
+        "info",
+    )
+
+    st.markdown("##### Model pipeline")
+    st.code(
+        "TF-IDF Vectorizer (1-2 grams, English stop words) -> Logistic Regression",
+        language="text",
+    )
+
+    render_prediction_explanation_section(prediction_explanation)
+
+    st.markdown("##### Prediction probabilities")
+    if not top_predictions.empty:
+        chart_df = top_predictions.set_index("Role")
+        st.bar_chart(chart_df["Confidence %"])
+        st.dataframe(top_predictions, width="stretch", hide_index=True)
+    else:
+        st.write("Probability output is not available for this classifier.")
+
+    st.markdown("##### Stored evaluation metadata")
+    if metrics:
+        st.json({"accuracy": metrics.get("accuracy"), "available_roles": clean_classes})
+    else:
+        st.info("No metrics metadata file found.")
+
+    if jd_skills:
+        st.markdown("##### Match analytics snapshot")
+        analytics_df = pd.DataFrame(
+            {
+                "Metric": ["Matched Skills", "Missing Skills", "Extra Skills"],
+                "Count": [matched_count, missing_count, extra_count],
+            }
+        )
+        st.bar_chart(analytics_df.set_index("Metric"))
+        st.dataframe(analytics_df, width="stretch", hide_index=True)
+
+
+def render_privacy_responsible_ai_section(privacy_mode: bool) -> None:
+    render_navigation_section_title(
+        "Privacy & Responsible AI",
+        "Decision-support boundaries, privacy-safe display mode, and future fairness work.",
+    )
+    render_disclaimer_box(
+        "ResumeIQ is a decision-support tool. It does not make hiring decisions, and outputs should be reviewed by a human."
+    )
+    render_workflow_status(
+        [
+            {
+                "label": "Privacy-safe display mode",
+                "is_active": privacy_mode,
+                "active_text": "On",
+                "inactive_text": "Off",
+            },
+            {
+                "label": "Local analysis",
+                "is_active": True,
+                "active_text": "Active",
+                "inactive_text": "Inactive",
+            },
+        ]
+    )
+    st.write(get_privacy_mode_message(privacy_mode))
+    render_alert_banner(
+        "ResumeIQ does not score protected attributes such as age, gender, race, religion, disability, marital status, or immigration status.",
+        "info",
+    )
+    render_feature_placeholder_card(
+        "Fairness Dashboard",
+        "Planned future feature using synthetic/demo data only. Privacy safeguards required before expanding responsible-AI reporting.",
+    )
+
+
+def render_job_application_assistant_placeholder() -> None:
+    render_navigation_section_title(
+        "Job Application Assistant",
+        "Future tools for candidate-facing documents.",
+    )
+    placeholder_text = "Planned future feature. Privacy safeguards required and user consent required before using external AI."
+    cards = [
+        "Tailored Resume Guidance",
+        "Cover Letter Draft",
+        "Recruiter Cold Email",
+        "LinkedIn Cold Message",
+        "Interview Prep Questions",
+    ]
+    columns = st.columns(2, gap="medium")
+    for index, title in enumerate(cards):
+        with columns[index % 2]:
+            render_feature_placeholder_card(title, placeholder_text)
+
+
 def summarize_detected_sections(sections: dict) -> dict:
     return {
         section_name: bool(section_text.strip())
@@ -1090,7 +1356,9 @@ except Exception as exc:
 
 metrics = get_metrics()
 
-render_hero()
+ensure_batch_file_store()
+
+render_page_header()
 
 with st.sidebar:
     st.markdown("### Project Controls")
@@ -1103,23 +1371,26 @@ with st.sidebar:
     st.caption(get_privacy_mode_message(privacy_mode))
 
     st.markdown("---")
+    input_status_slot = st.container()
+
+    st.markdown("---")
     st.markdown("### Model Snapshot")
     accuracy = metrics.get("accuracy", 0)
     st.metric("Validation accuracy", f"{accuracy:.2%}")
+    st.caption("Baseline TF-IDF + Logistic Regression model. Treat high validation accuracy as a signal to investigate later.")
 
     classes = metrics.get("report", {}).keys()
     clean_classes = [c for c in classes if c not in {"accuracy", "macro avg", "weighted avg"}]
     st.caption(f"Supported roles: {', '.join(clean_classes[:10])}")
 
     st.markdown("---")
-    st.markdown("### Why this project stands out")
+    st.markdown("### Workflow Guide")
     st.markdown(
         """
         <div class="subtle">
-        • End-to-end NLP + ML workflow<br>
-        • Recruiter-friendly use case<br>
-        • Portfolio-quality dashboard UI<br>
-        • Deployment-ready for Azure
+        1. Upload resume<br>
+        2. Add job description<br>
+        3. Review intelligence tabs
         </div>
         """,
         unsafe_allow_html=True,
@@ -1127,12 +1398,12 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown("### Local Run")
-    st.code("python -m streamlit run app.py", language="bash")
+    st.code("streamlit run app.py --server.fileWatcherType none", language="bash")
 
 top_left, top_right = st.columns([1.18, 0.82], gap="large")
 
 with top_left:
-    st.markdown('<div class="panel-card">', unsafe_allow_html=True)
+    st.markdown('<div class="input-card">', unsafe_allow_html=True)
     st.markdown('<div class="section-label">1) Upload Resume</div>', unsafe_allow_html=True)
     main_uploaded_files = st.file_uploader(
         "Upload one or more resumes in PDF, TXT, or DOCX format",
@@ -1154,7 +1425,7 @@ with top_left:
     st.markdown("</div>", unsafe_allow_html=True)
 
     default_jd = load_sample_jd() if use_sample_jd else ""
-    st.markdown('<div class="panel-card">', unsafe_allow_html=True)
+    st.markdown('<div class="input-card">', unsafe_allow_html=True)
     st.markdown('<div class="section-label">2) Paste Job Description</div>', unsafe_allow_html=True)
     job_description = st.text_area(
         "Paste job description",
@@ -1164,6 +1435,36 @@ with top_left:
         placeholder="Paste a Data Scientist / ML Engineer / Analyst job description here...",
     )
     st.markdown("</div>", unsafe_allow_html=True)
+
+    render_section_title("Input Status")
+    render_workflow_status(
+        [
+            {
+                "label": "Resume uploaded",
+                "is_active": uploaded_file is not None,
+                "active_text": "Uploaded",
+                "inactive_text": "Needed",
+            },
+            {
+                "label": "JD provided",
+                "is_active": bool(job_description.strip()),
+                "active_text": "Provided",
+                "inactive_text": "Needed",
+            },
+            {
+                "label": "Privacy mode",
+                "is_active": privacy_mode,
+                "active_text": "On",
+                "inactive_text": "Off",
+            },
+            {
+                "label": "Batch mode",
+                "is_active": len(st.session_state.get("batch_file_store", [])) > 0,
+                "active_text": "Available",
+                "inactive_text": "Available",
+            },
+        ]
+    )
 
 with top_right:
     st.markdown(
@@ -1207,6 +1508,31 @@ with top_right:
         </div>
         """,
         unsafe_allow_html=True,
+    )
+
+with input_status_slot:
+    st.markdown("### Input Status")
+    render_workflow_status(
+        [
+            {
+                "label": "Resume uploaded",
+                "is_active": uploaded_file is not None,
+                "active_text": "Yes",
+                "inactive_text": "No",
+            },
+            {
+                "label": "JD added",
+                "is_active": bool(job_description.strip()),
+                "active_text": "Yes",
+                "inactive_text": "No",
+            },
+            {
+                "label": "Batch files ready",
+                "is_active": len(st.session_state.get("batch_file_store", [])) > 0,
+                "active_text": str(len(st.session_state.get("batch_file_store", []))),
+                "inactive_text": "0",
+            },
+        ]
     )
 
 if uploaded_file is None:
@@ -1324,27 +1650,29 @@ else:
 
         (
             overview_tab,
-            ats_tab,
             quality_tab,
-            skills_tab,
-            batch_tab,
-            rewrite_tab,
-            preview_tab,
+            match_tab,
+            recruiter_tab,
             model_tab,
+            privacy_tab,
+            assistant_tab,
         ) = st.tabs(
             [
-                "Overview",
-                "ATS & Job Match",
+                "Candidate Overview",
                 "Resume Quality",
-                "Skills Intelligence",
-                "Batch Ranking",
-                "Rewrite Suggestions",
-                "Resume Preview",
-                "Model Details",
+                "Job Match Intelligence",
+                "Recruiter Workspace",
+                "Model Transparency",
+                "Privacy & Responsible AI",
+                "Job Application Assistant",
             ]
         )
 
         with overview_tab:
+            render_navigation_section_title(
+                "Candidate Overview",
+                "High-level fit signals, recruiter-readable summary, and priority next steps.",
+            )
             render_analysis_overview(
                 predicted_role=predicted_role,
                 confidence_display=confidence_display,
@@ -1367,37 +1695,13 @@ else:
                     "Model confidence is low; use the combined fit signals instead of relying only on the predicted role.",
                     "warning",
                 )
-            render_candidate_fit_section(candidate_fit_result, role_profile_summary)
-            render_resume_improvement_report(resume_improvement_report)
-
-        with ats_tab:
-            render_ats_section(ats_result, bool(job_description.strip()))
-            render_section_title("Job Description Match", "Skill overlap between the resume and target role.")
-
-            jm1, jm2, jm3 = st.columns(3, gap="medium")
-            with jm1:
-                render_score_summary("JD Match Percentage", f"{match_score:.2%}", helper_text="Resume/JD skill overlap")
-            with jm2:
-                render_metric_card("Matched Skills", matched_count, "Skills found in both resume and JD")
-            with jm3:
-                render_metric_card("Missing Skills", missing_count, "JD skills not detected in resume")
-
-            if job_description.strip():
-                st.markdown("##### Matched skills")
-                render_badge_group(gap.get("matched", []))
-                st.markdown("##### Missing skills")
-                render_badge_group(gap.get("missing", []))
-            else:
-                render_alert_banner("Paste a job description to unlock matched and missing skill analysis.", "info")
-
-            candidate_name = get_candidate_name_from_parser(parser_result)
-            render_semantic_match_section(
-                semantic_result,
-                privacy_mode=privacy_mode,
-                candidate_name=candidate_name,
-            )
 
         with quality_tab:
+            render_navigation_section_title(
+                "Resume Quality",
+                "ATS compatibility, writing quality, structure advice, rewrites, and improvement planning.",
+            )
+            render_ats_section(ats_result, bool(job_description.strip()))
             template_message = template_detection.get("warning")
             if template_severity == "strong" and template_message:
                 render_alert_banner(template_message, "warning")
@@ -1405,195 +1709,59 @@ else:
                 render_alert_banner(template_message, "info")
             render_sentence_quality_section(sentence_quality_result)
             render_structure_advisor(structure_advice)
+            render_rewrite_suggestions_section(rewrite_suggestions, rewrite_summary)
+            render_resume_improvement_report(resume_improvement_report)
 
-        with skills_tab:
-            render_section_title(
-                "Skills Intelligence",
-                "Extracted resume skills, target-job overlap, missing skills, and additional resume strengths.",
+        with match_tab:
+            render_navigation_section_title(
+                "Job Match Intelligence",
+                "Keyword, taxonomy, semantic, role-profile, and fit-score evidence for the target job.",
             )
-            if role_profile_summary.get("priority_categories"):
-                st.write("Priority categories for this role:")
-                render_badge_group(role_profile_summary.get("priority_categories", []))
+            if job_description.strip():
+                render_jd_keyword_match_section(match_score, matched_count, missing_count, gap)
+            else:
+                render_alert_banner("Paste a job description to unlock matched and missing skill analysis.", "info")
+            render_skills_intelligence_section(resume_skills, gap, role_profile_summary, skill_taxonomy_result)
+            candidate_name = get_candidate_name_from_parser(parser_result)
+            render_semantic_match_section(
+                semantic_result,
+                privacy_mode=privacy_mode,
+                candidate_name=candidate_name,
+            )
+            render_candidate_fit_section(candidate_fit_result, role_profile_summary)
 
-            skill_cols = st.columns(2, gap="large")
-            with skill_cols[0]:
-                st.markdown("##### Resume skills")
-                render_badge_group(resume_skills)
-
-                st.markdown("##### Matched skills")
-                render_badge_group(gap.get("matched", []))
-
-            with skill_cols[1]:
-                st.markdown("##### Missing skills")
-                render_badge_group(gap.get("missing", []))
-
-                st.markdown("##### Extra resume skills")
-                render_badge_group(gap.get("extra", []))
-
-            render_skill_taxonomy_breakdown(skill_taxonomy_result)
-
-        with batch_tab:
+        with recruiter_tab:
+            render_navigation_section_title(
+                "Recruiter Workspace",
+                "Batch ranking, priority actions, manual notes, shortlist status, and CSV exports.",
+            )
             render_batch_ranking_section(job_description, privacy_mode=privacy_mode)
 
-        with rewrite_tab:
-            render_section_title(
-                "Humanized Rewrite Suggestions",
-                "These suggestions are local and template-based. They do not invent achievements. Replace placeholders with your real details.",
-            )
-
-            if not rewrite_suggestions:
-                render_empty_state(
-                    "No rewrite suggestions yet",
-                    "ResumeIQ generates rewrite suggestions when it finds generic, vague, or AI-like sentences.",
-                )
-            else:
-                summary_col, pattern_col = st.columns([0.42, 0.58], gap="medium")
-                with summary_col:
-                    render_metric_card(
-                        "Total Suggestions",
-                        rewrite_summary.get("total_suggestions", 0),
-                        "Template-based suggestions from flagged sentences",
-                    )
-                with pattern_col:
-                    render_section_title("Top Issue Patterns")
-                    render_badge_group(rewrite_summary.get("top_patterns", []))
-
-                render_alert_banner(rewrite_summary.get("priority_message", ""), "info")
-
-                for index, suggestion in enumerate(rewrite_suggestions, start=1):
-                    with st.expander(f"{index}. {suggestion.get('issue', 'Rewrite suggestion')}", expanded=index == 1):
-                        st.markdown("##### Original sentence")
-                        st.write(suggestion.get("original_sentence", ""))
-
-                        st.markdown("##### Issue")
-                        st.write(suggestion.get("issue", ""))
-
-                        st.markdown("##### Why it may be weak")
-                        st.write(suggestion.get("why_weak", ""))
-
-                        st.markdown("##### Suggested rewrite template")
-                        st.write(suggestion.get("suggested_rewrite", ""))
-
-                        st.markdown("##### Stronger resume version")
-                        st.write(suggestion.get("stronger_resume_version", ""))
-
-                        st.markdown("##### Rewrite tip")
-                        st.write(suggestion.get("rewrite_tip", ""))
-
-        with preview_tab:
-            render_section_title(
-                "Resume Preview",
-                "Extracted text and parser details used by the current analysis pipeline.",
-            )
-            st.markdown("##### Extracted resume text")
-            preview_candidate_name = get_candidate_name_from_parser(parser_result)
-            display_resume_text = resume_text
-            if privacy_mode:
-                render_alert_banner(
-                    "Privacy-safe display mode is enabled. Extracted resume text is masked for review.",
-                    "info",
-                )
-                display_resume_text = mask_pii(resume_text, candidate_name=preview_candidate_name)
-            st.text_area("Resume text", display_resume_text[:8000], height=320, label_visibility="collapsed")
-
-            with st.expander("Parser details", expanded=False):
-                sections = parser_result.get("sections", {})
-                if sections:
-                    st.markdown("##### Detected sections")
-                    st.json(summarize_detected_sections(sections))
-
-                contact_info = parser_result.get("contact_info")
-                if contact_info:
-                    st.markdown("##### Contact summary")
-                    if privacy_mode:
-                        st.json(
-                            {
-                                "email": "[email]" if contact_info.get("email") else None,
-                                "phone": "[phone]" if contact_info.get("phone") else None,
-                                "linkedin": "[linkedin]" if contact_info.get("linkedin") else None,
-                                "github": "[github]" if contact_info.get("github") else None,
-                                "portfolio": "[portfolio]" if contact_info.get("portfolio") else None,
-                            }
-                        )
-                    else:
-                        st.json(contact_info)
-
-                st.markdown("##### Estimated years of experience")
-                years = parser_result.get("estimated_years_experience")
-                st.write(f"{years} years" if years is not None else "Not detected")
-
-                if template_detection:
-                    st.markdown("##### Template detection")
-                    if template_severity == "strong" and template_detection.get("warning"):
-                        st.warning(template_detection.get("warning"))
-                    elif template_severity == "partial" and template_detection.get("warning"):
-                        st.info(template_detection.get("warning"))
-                    st.write(
-                        {
-                            "template_score": template_detection.get("template_score"),
-                            "severity": template_detection.get("severity", "none"),
-                            "matched_placeholders": template_detection.get("matched_placeholders", []),
-                            "real_content_signals": template_detection.get("real_content_signals", []),
-                        }
-                    )
-
-                parsed_items = {
-                    "education": parser_result.get("education"),
-                    "experience": parser_result.get("experience"),
-                    "projects": parser_result.get("projects"),
-                    "certifications": parser_result.get("certifications"),
-                }
-                available_items = {key: value for key, value in parsed_items.items() if value}
-                if available_items:
-                    st.markdown("##### Parsed resume items")
-                    st.write(available_items)
-
-            if job_description.strip():
-                st.markdown("##### Job description text")
-                st.text_area("Job description text", job_description[:5000], height=220, label_visibility="collapsed")
-
         with model_tab:
-            render_section_title(
-                "Model Details",
-                "Current baseline classifier metadata and probability output.",
+            render_model_transparency_section(
+                prediction_explanation=prediction_explanation,
+                top_predictions=top_predictions,
+                metrics=metrics,
+                clean_classes=clean_classes,
+                jd_skills=jd_skills,
+                matched_count=matched_count,
+                missing_count=missing_count,
+                extra_count=extra_count,
             )
-            render_alert_banner(
-                "The current baseline model is useful for demonstration, but the 100% validation accuracy and low real-resume confidence should be investigated later with stronger evaluation, calibration, and model comparison.",
-                "info",
+            render_resume_preview_section(
+                parser_result=parser_result,
+                resume_text=resume_text,
+                job_description=job_description,
+                template_detection=template_detection,
+                template_severity=template_severity,
+                privacy_mode=privacy_mode,
             )
 
-            st.markdown("##### Model pipeline")
-            st.code(
-                "TF-IDF Vectorizer (1-2 grams, English stop words) -> Logistic Regression",
-                language="text",
-            )
+        with privacy_tab:
+            render_privacy_responsible_ai_section(privacy_mode)
 
-            render_prediction_explanation_section(prediction_explanation)
-
-            st.markdown("##### Prediction probabilities")
-            if not top_predictions.empty:
-                chart_df = top_predictions.set_index("Role")
-                st.bar_chart(chart_df["Confidence %"])
-                st.dataframe(top_predictions, width="stretch", hide_index=True)
-            else:
-                st.write("Probability output is not available for this classifier.")
-
-            st.markdown("##### Stored evaluation metadata")
-            if metrics:
-                st.json({"accuracy": metrics.get("accuracy"), "available_roles": clean_classes})
-            else:
-                st.info("No metrics metadata file found.")
-
-            if jd_skills:
-                st.markdown("##### Match analytics snapshot")
-                analytics_df = pd.DataFrame(
-                    {
-                        "Metric": ["Matched Skills", "Missing Skills", "Extra Skills"],
-                        "Count": [matched_count, missing_count, extra_count],
-                    }
-                )
-                st.bar_chart(analytics_df.set_index("Metric"))
-                st.dataframe(analytics_df, width="stretch", hide_index=True)
+        with assistant_tab:
+            render_job_application_assistant_placeholder()
 
 st.markdown(
     '<div class="footer-note">Built with Streamlit, scikit-learn, pandas, and pypdf. Designed as a portfolio-grade NLP + ML dashboard and ready for GitHub + Azure deployment.</div>',
