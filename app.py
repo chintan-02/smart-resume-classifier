@@ -28,6 +28,12 @@ from src.prediction_service import get_top_predictions as get_model_top_predicti
 from src.prediction_service import load_model_artifacts, predict_resume_role
 from src.prediction_explainer import build_prediction_explanation, get_prediction_explanation_cards
 from src.preprocessing import preprocess_resume_text
+from src.privacy_tools import (
+    anonymize_batch_rows,
+    anonymize_review_records,
+    get_privacy_mode_message,
+    mask_pii,
+)
 from src.recruiter_workflow import (
     build_review_records,
     convert_review_records_to_csv,
@@ -141,6 +147,18 @@ def store_files_for_batch(files) -> int:
         stored_names.add(file_name)
         added_count += 1
     return added_count
+
+
+def get_candidate_name_from_parser(parser_result) -> str:
+    parser_result = parser_result if isinstance(parser_result, dict) else {}
+    contact_info = parser_result.get("contact_info", {}) if isinstance(parser_result, dict) else {}
+    return (
+        parser_result.get("candidate_name")
+        or parser_result.get("name")
+        or contact_info.get("name")
+        or contact_info.get("candidate_name")
+        or ""
+    )
 
 
 def build_summary_insight(predicted_role, match_score, matched_count, missing_count):
@@ -338,7 +356,7 @@ def render_candidate_fit_section(candidate_fit_result: dict, role_profile_summar
     render_alert_banner(candidate_fit_result.get("disclaimer", ""), "info")
 
 
-def render_recruiter_workflow_section(ranked_rows: list[dict]) -> None:
+def render_recruiter_workflow_section(ranked_rows: list[dict], privacy_mode: bool = False) -> None:
     render_section_title(
         "Recruiter Notes & Shortlist Workflow",
         "Add manual review statuses and notes for each ranked resume.",
@@ -359,7 +377,8 @@ def render_recruiter_workflow_section(ranked_rows: list[dict]) -> None:
         return
 
     status_options = get_review_status_options()
-    for row in ranked_rows:
+    display_rows = anonymize_batch_rows(ranked_rows) if privacy_mode else ranked_rows
+    for row, display_row in zip(ranked_rows, display_rows):
         review_key = make_review_key(row)
         saved_review = st.session_state["recruiter_review_state"].get(review_key, {})
         current_status = saved_review.get("status", get_default_review_status(row))
@@ -367,20 +386,20 @@ def render_recruiter_workflow_section(ranked_rows: list[dict]) -> None:
             current_status = get_default_review_status(row)
         current_note = saved_review.get("note", "")
 
-        with st.expander(f"{row.get('Rank')}. {row.get('Candidate')}"):
+        with st.expander(f"{display_row.get('Rank')}. {display_row.get('Candidate')}"):
             score_col, label_col, recommendation_col = st.columns(3, gap="medium")
             with score_col:
-                render_metric_card("Overall Fit Score", f"{row.get('Overall Fit Score', 0)}%", "Batch fit signal")
+                render_metric_card("Overall Fit Score", f"{display_row.get('Overall Fit Score', 0)}%", "Batch fit signal")
             with label_col:
-                render_metric_card("Fit Label", row.get("Fit Label", "Not available"), "Local fit interpretation")
+                render_metric_card("Fit Label", display_row.get("Fit Label", "Not available"), "Local fit interpretation")
             with recommendation_col:
                 render_metric_card(
                     "Recommendation",
-                    row.get("Recommendation", "Not available"),
+                    display_row.get("Recommendation", "Not available"),
                     "Decision-support recommendation",
                 )
 
-            actions_text = row.get("Priority Actions", "")
+            actions_text = display_row.get("Priority Actions", "")
             actions = [item.strip() for item in actions_text.split("|") if item.strip()]
             st.markdown("##### Priority Actions")
             if actions:
@@ -407,7 +426,8 @@ def render_recruiter_workflow_section(ranked_rows: list[dict]) -> None:
             }
 
     review_records = build_review_records(ranked_rows, st.session_state["recruiter_review_state"])
-    review_summary = get_review_summary(review_records)
+    export_review_records = anonymize_review_records(review_records) if privacy_mode else review_records
+    review_summary = get_review_summary(export_review_records)
     st.write(review_summary.get("main_message", ""))
 
     review_cards = get_review_summary_cards(review_summary)
@@ -416,7 +436,7 @@ def render_recruiter_workflow_section(ranked_rows: list[dict]) -> None:
         with column:
             render_metric_card(card.get("title", ""), card.get("value", ""), card.get("helper_text", ""))
 
-    review_csv = convert_review_records_to_csv(review_records)
+    review_csv = convert_review_records_to_csv(export_review_records)
     csv_col, clear_col = st.columns([0.58, 0.42], gap="medium")
     with csv_col:
         st.download_button(
@@ -474,7 +494,7 @@ def render_prediction_explanation_section(prediction_explanation: dict) -> None:
     render_alert_banner(prediction_explanation.get("disclaimer", ""), "info")
 
 
-def render_batch_ranking_section(job_description: str) -> None:
+def render_batch_ranking_section(job_description: str, privacy_mode: bool = False) -> None:
     render_section_title(
         "Batch Resume Ranking",
         "Upload multiple resumes and compare them against the pasted job description using ResumeIQ fit signals.",
@@ -576,7 +596,8 @@ def render_batch_ranking_section(job_description: str) -> None:
 
     ranked_rows = st.session_state.get("batch_ranking_rows", [])
     if ranked_rows:
-        summary = get_batch_summary(ranked_rows)
+        display_rows = anonymize_batch_rows(ranked_rows) if privacy_mode else ranked_rows
+        summary = get_batch_summary(display_rows)
         st.write(summary.get("main_message", ""))
         summary_cards = get_batch_summary_cards(summary)
         summary_columns = st.columns(len(summary_cards), gap="medium")
@@ -585,10 +606,15 @@ def render_batch_ranking_section(job_description: str) -> None:
                 render_metric_card(card.get("title", ""), card.get("value", ""), card.get("helper_text", ""))
 
         render_section_title("Ranked Resumes by Fit Signals")
+        if privacy_mode:
+            render_alert_banner(
+                "Privacy-safe mode masks common identifiers for display. It does not guarantee full anonymization or bias removal.",
+                "info",
+            )
         st.caption(summary.get("top_candidate_label", ""))
-        st.dataframe(pd.DataFrame(ranked_rows), width="stretch", hide_index=True)
+        st.dataframe(pd.DataFrame(display_rows), width="stretch", hide_index=True)
 
-        csv_data = convert_rows_to_csv(ranked_rows)
+        csv_data = convert_rows_to_csv(display_rows)
         st.download_button(
             "Download Ranked CSV",
             data=csv_data,
@@ -596,11 +622,15 @@ def render_batch_ranking_section(job_description: str) -> None:
             mime="text/csv",
         )
 
-        rows_with_actions = [row for row in ranked_rows if row.get("Priority Actions")]
+        rows_with_actions = [
+            (row, display_row)
+            for row, display_row in zip(ranked_rows, display_rows)
+            if row.get("Priority Actions")
+        ]
         if rows_with_actions:
             render_section_title("Priority Actions by Resume")
-            for row in rows_with_actions[:5]:
-                with st.expander(f"{row.get('Rank')}. {row.get('Candidate')}"):
+            for row, display_row in rows_with_actions[:5]:
+                with st.expander(f"{display_row.get('Rank')}. {display_row.get('Candidate')}"):
                     actions_text = row.get("Priority Actions", "")
                     actions = [item.strip() for item in actions_text.split("|") if item.strip()]
                     if actions:
@@ -609,9 +639,9 @@ def render_batch_ranking_section(job_description: str) -> None:
                     else:
                         st.write("No priority actions available.")
 
-        render_recruiter_workflow_section(ranked_rows)
+        render_recruiter_workflow_section(ranked_rows, privacy_mode=privacy_mode)
     else:
-        render_recruiter_workflow_section([])
+        render_recruiter_workflow_section([], privacy_mode=privacy_mode)
 
 
 def render_ats_section(ats_result: dict, has_job_description: bool) -> None:
@@ -857,7 +887,7 @@ def render_skill_taxonomy_breakdown(taxonomy_result: dict) -> None:
         render_alert_banner("Add missing skills only if they reflect your real experience.", "info")
 
 
-def render_semantic_match_section(semantic_result: dict) -> None:
+def render_semantic_match_section(semantic_result: dict, privacy_mode: bool = False, candidate_name: str = "") -> None:
     render_section_title(
         "Semantic JD-Resume Match",
         "Meaning-based similarity between the resume and target job description.",
@@ -894,7 +924,10 @@ def render_semantic_match_section(semantic_result: dict) -> None:
         for index, pair in enumerate(top_pairs, start=1):
             with st.expander(f"{index}. Similarity {pair.get('similarity', 0)}", expanded=index == 1):
                 st.markdown("##### Resume evidence")
-                st.write(pair.get("resume_chunk", ""))
+                resume_chunk = pair.get("resume_chunk", "")
+                if privacy_mode:
+                    resume_chunk = mask_pii(resume_chunk, candidate_name=candidate_name)
+                st.write(resume_chunk)
                 st.markdown("##### Job description requirement")
                 st.write(pair.get("jd_chunk", ""))
 
@@ -910,6 +943,11 @@ def render_semantic_match_section(semantic_result: dict) -> None:
     else:
         render_alert_banner("No weak JD chunks detected by semantic matching.", "success")
 
+    if privacy_mode:
+        render_alert_banner(
+            "Privacy-safe mode masks common identifiers for display. It does not guarantee full anonymization or bias removal.",
+            "info",
+        )
     render_alert_banner(semantic_result.get("disclaimer", ""), "info")
 
 
@@ -1057,6 +1095,12 @@ render_hero()
 with st.sidebar:
     st.markdown("### Project Controls")
     use_sample_jd = st.toggle("Use sample ML/Data Science JD", value=False)
+    privacy_mode = st.toggle(
+        "Privacy-safe display mode",
+        value=False,
+        help="Masks common personal identifiers in displayed resume text, batch ranking, recruiter notes, and exports where possible.",
+    )
+    st.caption(get_privacy_mode_message(privacy_mode))
 
     st.markdown("---")
     st.markdown("### Model Snapshot")
@@ -1171,7 +1215,7 @@ if uploaded_file is None:
         "Upload a PDF, DOCX, or TXT resume to unlock prediction, ATS compatibility, skill matching, writing-quality checks, and recruiter-style insights.",
     )
     if app_ready:
-        render_batch_ranking_section(job_description)
+        render_batch_ranking_section(job_description, privacy_mode=privacy_mode)
 elif not app_ready:
     st.error("The app cannot analyze resumes until the required model and data files are available.")
 elif not is_supported_file(uploaded_file):
@@ -1346,7 +1390,12 @@ else:
             else:
                 render_alert_banner("Paste a job description to unlock matched and missing skill analysis.", "info")
 
-            render_semantic_match_section(semantic_result)
+            candidate_name = get_candidate_name_from_parser(parser_result)
+            render_semantic_match_section(
+                semantic_result,
+                privacy_mode=privacy_mode,
+                candidate_name=candidate_name,
+            )
 
         with quality_tab:
             template_message = template_detection.get("warning")
@@ -1384,7 +1433,7 @@ else:
             render_skill_taxonomy_breakdown(skill_taxonomy_result)
 
         with batch_tab:
-            render_batch_ranking_section(job_description)
+            render_batch_ranking_section(job_description, privacy_mode=privacy_mode)
 
         with rewrite_tab:
             render_section_title(
@@ -1437,7 +1486,15 @@ else:
                 "Extracted text and parser details used by the current analysis pipeline.",
             )
             st.markdown("##### Extracted resume text")
-            st.text_area("Resume text", resume_text[:8000], height=320, label_visibility="collapsed")
+            preview_candidate_name = get_candidate_name_from_parser(parser_result)
+            display_resume_text = resume_text
+            if privacy_mode:
+                render_alert_banner(
+                    "Privacy-safe display mode is enabled. Extracted resume text is masked for review.",
+                    "info",
+                )
+                display_resume_text = mask_pii(resume_text, candidate_name=preview_candidate_name)
+            st.text_area("Resume text", display_resume_text[:8000], height=320, label_visibility="collapsed")
 
             with st.expander("Parser details", expanded=False):
                 sections = parser_result.get("sections", {})
@@ -1448,7 +1505,18 @@ else:
                 contact_info = parser_result.get("contact_info")
                 if contact_info:
                     st.markdown("##### Contact summary")
-                    st.json(contact_info)
+                    if privacy_mode:
+                        st.json(
+                            {
+                                "email": "[email]" if contact_info.get("email") else None,
+                                "phone": "[phone]" if contact_info.get("phone") else None,
+                                "linkedin": "[linkedin]" if contact_info.get("linkedin") else None,
+                                "github": "[github]" if contact_info.get("github") else None,
+                                "portfolio": "[portfolio]" if contact_info.get("portfolio") else None,
+                            }
+                        )
+                    else:
+                        st.json(contact_info)
 
                 st.markdown("##### Estimated years of experience")
                 years = parser_result.get("estimated_years_experience")
