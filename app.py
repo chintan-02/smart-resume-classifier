@@ -21,6 +21,7 @@ from src.report_builder import build_resume_improvement_report, get_report_summa
 from src.resume_parser import is_supported_file, parse_resume
 from src.resume_structure_advisor import build_structure_advice, get_structure_summary_cards
 from src.rewrite_suggestions import generate_rewrite_suggestions, get_rewrite_summary
+from src.role_profiles import infer_target_role, get_role_profile, get_role_profile_summary
 from src.semantic_matcher import build_semantic_match_result, get_semantic_summary_cards
 from src.sentence_quality import detect_ai_like_sentences
 from src.skill_taxonomy import compare_skill_categories, get_skill_taxonomy_summary
@@ -203,12 +204,36 @@ def render_resume_improvement_report(report: dict) -> None:
     render_alert_banner(report.get("disclaimer", ""), "info")
 
 
-def render_candidate_fit_section(candidate_fit_result: dict) -> None:
+def render_candidate_fit_section(candidate_fit_result: dict, role_profile_summary: dict | None = None) -> None:
     render_section_title(
         "Multi-Score Candidate Fit",
         "A local, explainable fit estimate that combines resume, job-description, ATS, quality, and model signals.",
     )
     st.write(candidate_fit_result.get("summary", ""))
+
+    if role_profile_summary:
+        render_section_title("Role-Specific Scoring Profile")
+        role_col, component_col = st.columns(2, gap="medium")
+        with role_col:
+            render_metric_card(
+                "Target Role Used",
+                role_profile_summary.get("target_role", "General / Unknown"),
+                "Inferred from JD text first, then predicted role.",
+            )
+        with component_col:
+            render_metric_card(
+                "Top Weighted Component",
+                role_profile_summary.get("top_weighted_component", "Not available"),
+                "Highest-weighted local fit signal for this role.",
+            )
+        st.markdown("##### Priority skill categories")
+        render_badge_group(role_profile_summary.get("priority_categories", []))
+        if role_profile_summary.get("role_guidance"):
+            st.write(role_profile_summary.get("role_guidance"))
+        render_alert_banner(
+            "ResumeIQ adjusts candidate fit weights based on the target role. This is a local rule-based profile, not an automatic hiring decision.",
+            "info",
+        )
 
     cards = get_candidate_fit_summary_cards(candidate_fit_result)
     card_columns = st.columns(len(cards), gap="medium")
@@ -718,6 +743,10 @@ else:
         if not top_predictions.empty:
             confidence_display = f"{top_predictions.iloc[0]['Confidence %']:.2f}%"
 
+        target_role = infer_target_role(predicted_role=predicted_role, job_description=job_description)
+        role_profile = get_role_profile(target_role)
+        role_profile_summary = get_role_profile_summary(role_profile)
+
         match_analysis = analyze_job_description_match(resume_clean, job_description, skills_list)
         resume_skills = match_analysis["resume_skills"]
         jd_skills = match_analysis["jd_skills"]
@@ -777,6 +806,8 @@ else:
             structure_advice=structure_advice,
             parser_result=parser_result,
             resume_text=resume_text,
+            target_role=target_role,
+            role_profile=role_profile,
         )
 
         (
@@ -816,7 +847,7 @@ else:
                     f"{semantic_result.get('semantic_score')}%",
                     "Meaning-based JD/resume alignment",
                 )
-            render_candidate_fit_section(candidate_fit_result)
+            render_candidate_fit_section(candidate_fit_result, role_profile_summary)
             render_resume_improvement_report(resume_improvement_report)
 
         with ats_tab:
@@ -855,6 +886,10 @@ else:
                 "Skills Intelligence",
                 "Extracted resume skills, target-job overlap, missing skills, and additional resume strengths.",
             )
+            if role_profile_summary.get("priority_categories"):
+                st.write("Priority categories for this role:")
+                render_badge_group(role_profile_summary.get("priority_categories", []))
+
             skill_cols = st.columns(2, gap="large")
             with skill_cols[0]:
                 st.markdown("##### Resume skills")

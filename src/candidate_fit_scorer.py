@@ -1,5 +1,7 @@
 import re
 
+from src.role_profiles import get_role_profile
+
 
 CANDIDATE_FIT_DISCLAIMER = (
     "This is a local, explainable ResumeIQ fit estimate based on available resume and "
@@ -302,6 +304,52 @@ def _component(name: str, score: float, weight: float, label: str, reason: str) 
     }
 
 
+def _default_component_weights() -> dict:
+    return {
+        "Semantic Match": 0.25,
+        "Skill Alignment": 0.25,
+        "ATS Compatibility": 0.20,
+        "Resume Quality": 0.15,
+        "Experience / Project Evidence": 0.10,
+        "Model Confidence Signal": 0.05,
+    }
+
+
+def _normalize_component_weights(weights: dict) -> dict:
+    weights = weights if isinstance(weights, dict) else {}
+    valid_weights = {
+        component: normalize_score(weights.get(component, 0)) / 100
+        for component in _default_component_weights()
+    }
+    total = sum(valid_weights.values())
+    if total <= 0:
+        return _default_component_weights()
+    return {component: value / total for component, value in valid_weights.items()}
+
+
+def _redistribute_semantic_weight(weights: dict) -> dict:
+    weights = _normalize_component_weights(weights)
+    semantic_weight = weights.get("Semantic Match", 0)
+    remaining = {
+        component: value
+        for component, value in weights.items()
+        if component != "Semantic Match"
+    }
+    remaining_total = sum(remaining.values())
+    if remaining_total <= 0:
+        return {
+            "Skill Alignment": 0.35,
+            "ATS Compatibility": 0.25,
+            "Resume Quality": 0.20,
+            "Experience / Project Evidence": 0.15,
+            "Model Confidence Signal": 0.05,
+        }
+    return {
+        component: value + (semantic_weight * (value / remaining_total))
+        for component, value in remaining.items()
+    }
+
+
 def build_candidate_fit_score(
     prediction_result=None,
     ats_result=None,
@@ -313,30 +361,21 @@ def build_candidate_fit_score(
     structure_advice=None,
     parser_result=None,
     resume_text: str = "",
+    target_role: str = "General / Unknown",
+    role_profile: dict | None = None,
 ) -> dict:
     ats_result = ats_result if isinstance(ats_result, dict) else {}
     semantic_result = semantic_result if isinstance(semantic_result, dict) else {}
+    role_profile = role_profile if isinstance(role_profile, dict) else get_role_profile(target_role)
+    target_role = safe_get(role_profile, "target_role", target_role)
 
     semantic_available = (
         bool(safe_get(semantic_result, "available"))
         and safe_get(semantic_result, "semantic_score") is not None
     )
-    weights = {
-        "Semantic Match": 0.25,
-        "Skill Alignment": 0.25,
-        "ATS Compatibility": 0.20,
-        "Resume Quality": 0.15,
-        "Experience / Project Evidence": 0.10,
-        "Model Confidence Signal": 0.05,
-    }
+    weights = _normalize_component_weights(safe_get(role_profile, "component_weights", {}))
     if not semantic_available:
-        weights = {
-            "Skill Alignment": 0.35,
-            "ATS Compatibility": 0.25,
-            "Resume Quality": 0.20,
-            "Experience / Project Evidence": 0.15,
-            "Model Confidence Signal": 0.05,
-        }
+        weights = _redistribute_semantic_weight(weights)
 
     skill_score = calculate_skill_score(jd_match_result, skill_taxonomy_result)
     quality_score = calculate_resume_quality_score(
@@ -436,8 +475,8 @@ def build_candidate_fit_score(
 
     summary = (
         f"ResumeIQ estimates a {round(overall_fit_score)}% multi-score candidate fit. "
-        f"This combines {len(component_scores)} local signals based on available resume and "
-        "job-description content."
+        f"This combines {len(component_scores)} local signals using the {target_role} scoring profile "
+        "based on available resume and job-description content."
     )
 
     return {
@@ -449,6 +488,10 @@ def build_candidate_fit_score(
         "strength_signals": strength_signals[:7],
         "risk_signals": risk_signals[:7],
         "priority_actions": priority_actions[:7],
+        "target_role": target_role,
+        "role_profile_used": target_role,
+        "priority_skill_categories": safe_get(role_profile, "priority_skill_categories", []) or [],
+        "role_guidance": safe_get(role_profile, "role_guidance", ""),
         "disclaimer": CANDIDATE_FIT_DISCLAIMER,
     }
 
