@@ -455,7 +455,13 @@ def render_batch_ranking_section(job_description: str) -> None:
             render_section_title("Priority Actions by Resume")
             for row in rows_with_actions[:5]:
                 with st.expander(f"{row.get('Rank')}. {row.get('Candidate')}"):
-                    st.write(row.get("Priority Actions", ""))
+                    actions_text = row.get("Priority Actions", "")
+                    actions = [item.strip() for item in actions_text.split("|") if item.strip()]
+                    if actions:
+                        for action in actions:
+                            st.markdown(f"- {action}")
+                    else:
+                        st.write("No priority actions available.")
 
 
 def render_ats_section(ats_result: dict, has_job_description: bool) -> None:
