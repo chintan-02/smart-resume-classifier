@@ -5,69 +5,78 @@ from typing import Any
 
 PLACEHOLDER_REWRITE_TEMPLATES = {
     "responsible_for": {
-        "issue": "Responsibility-focused wording",
-        "why_weak": "This explains a duty, but it does not show action, method, or impact.",
-        "suggested_rewrite": "Analyzed [project/process] using [tool/library] to identify [insight], supporting [business impact].",
-        "stronger_resume_version": "Use: Action Verb + Task + Tool/Method + Result/Impact.",
-        "rewrite_tip": "Replace responsibilities with measurable actions and outcomes.",
+        "issue_label": "Responsibility wording",
+        "explanation": "This explains a duty, but it does not clearly show action, method, or impact.",
+        "rewrite_template": "Analyzed [project/process] using [tool/library] to identify [insight], supporting [business impact].",
     },
     "worked_on": {
-        "issue": "Vague project contribution",
-        "why_weak": "This says you were involved, but it does not explain your specific contribution.",
-        "suggested_rewrite": "Built or improved [project/process] using [tool/library] to support [stakeholder/user group] with [business impact].",
-        "stronger_resume_version": "Use: Built/Improved + Project + Tool/Method + User/Impact.",
-        "rewrite_tip": "Clarify what you personally did and what changed because of the work.",
+        "issue_label": "Vague contribution",
+        "explanation": "This says you were involved, but it does not explain your specific contribution.",
+        "rewrite_template": "Built or improved [project/process] using [tool/library] to support [stakeholder/user group] with [business impact].",
     },
     "helped_with": {
-        "issue": "Support wording without clear ownership",
-        "why_weak": "This sounds supportive, but it does not show the specific task, skill, or result.",
-        "suggested_rewrite": "Supported [stakeholder/user group] by completing [project/process] with [tool/library], improving [business impact].",
-        "stronger_resume_version": "Use: Supported + Audience + Action + Tool/Method + Outcome.",
-        "rewrite_tip": "Show the concrete work you completed instead of only saying you helped.",
+        "issue_label": "Support wording",
+        "explanation": "This sounds supportive, but it does not show the specific task, skill, or result.",
+        "rewrite_template": "Supported [stakeholder/user group] by completing [project/process] with [tool/library], improving [business impact].",
     },
     "generic_results": {
-        "issue": "Generic results claim",
-        "why_weak": "This claims success, but it does not include evidence, context, or measurable impact.",
-        "suggested_rewrite": "Delivered [project/process] by applying [skill/method], resulting in [add measurable result] for [business impact].",
-        "stronger_resume_version": "Use: Delivered + Method + Evidence + Impact.",
-        "rewrite_tip": "Replace broad claims with a specific example and a real result.",
+        "issue_label": "Results claim",
+        "explanation": "This claims success, but it does not include enough evidence, context, or measurable impact.",
+        "rewrite_template": "Delivered [project/process] by applying [skill/method], resulting in [add truthful result] for [business impact].",
     },
     "team_player": {
-        "issue": "Generic soft-skill wording",
-        "why_weak": "This may sound generic because it names a trait without showing how you used it.",
-        "suggested_rewrite": "Collaborated with [stakeholder/user group] to complete [project/process], improving [business impact].",
-        "stronger_resume_version": "Use: Collaborated + Team/Audience + Work Completed + Result.",
-        "rewrite_tip": "Show teamwork through a real collaboration example.",
+        "issue_label": "Generic soft skill",
+        "explanation": "This names a trait without showing how you used it in real work.",
+        "rewrite_template": "Collaborated with [stakeholder/user group] to complete [project/process], improving [business impact].",
     },
     "passive_statement": {
-        "issue": "Passive or low-ownership wording",
-        "why_weak": "This may hide your role and make the bullet feel less action-oriented.",
-        "suggested_rewrite": "Led or contributed to [project/process] using [skill/method] to achieve [add measurable result].",
-        "stronger_resume_version": "Use: Active Verb + Ownership + Method + Result.",
-        "rewrite_tip": "Start with a strong action verb that clearly shows your contribution.",
+        "issue_label": "Low ownership",
+        "explanation": "This may hide your role and make the bullet feel less action-oriented.",
+        "rewrite_template": "Led or contributed to [project/process] using [skill/method] to achieve [truthful result].",
     },
     "vague_skill": {
-        "issue": "Skill listed without proof",
-        "why_weak": "This names a skill, but it does not show where or how you used it.",
-        "suggested_rewrite": "Applied [skill/method] in [project/process] using [tool/library] to support [business impact].",
-        "stronger_resume_version": "Use: Applied + Skill + Project Context + Tool + Impact.",
-        "rewrite_tip": "Connect skills to a project, task, or result.",
+        "issue_label": "Skill without proof",
+        "explanation": "This names a skill, but it does not show where or how you used it.",
+        "rewrite_template": "Applied [skill/method] in [project/process] using [tool/library] to support [business impact].",
     },
     "generic_summary": {
-        "issue": "Generic summary wording",
-        "why_weak": "This may sound broad or reusable across many resumes instead of specific to your experience.",
-        "suggested_rewrite": "[Role/level] with experience in [skill/method], [tool/library], and [project/process], focused on [business impact].",
-        "stronger_resume_version": "Use: Role + Specific Skills + Domain/Project + Impact Area.",
-        "rewrite_tip": "Make summary lines specific to your real tools, projects, and strengths.",
+        "issue_label": "Generic summary",
+        "explanation": "This may sound broad or reusable across many resumes instead of specific to your experience.",
+        "rewrite_template": "[Role/level] with experience in [skill/method], [tool/library], and [project/process], focused on [business impact].",
     },
     "default": {
-        "issue": "Generic or low-specificity wording",
-        "why_weak": "This sentence may need more detail about action, method, and impact.",
-        "suggested_rewrite": "Completed [project/process] using [skill/method] and [tool/library] to achieve [add measurable result].",
-        "stronger_resume_version": "Use: Action Verb + Work + Method/Tool + Result.",
-        "rewrite_tip": "Add truthful details that show what you did, how you did it, and why it mattered.",
+        "issue_label": "Generic wording",
+        "explanation": "This sentence may need more detail about action, method, and impact.",
+        "rewrite_template": "Completed [project/process] using [skill/method] and [tool/library] to achieve [truthful result].",
     },
 }
+
+REWRITE_FORMULA = "Action Verb + Task + Tool/Method + Result/Impact"
+SAFETY_NOTE = "Use only truthful details from your real experience."
+CUSTOMIZATION_TIPS = [
+    "Replace placeholders with truthful project/task details.",
+    "Add tools or methods only if you actually used them.",
+    "Add measurable results only if you can support them.",
+]
+CONTEXT_TERMS = [
+    "MICE imputation",
+    "outlier detection",
+    "dashboards",
+    "dashboard",
+    "classification",
+    "Python",
+    "SQL",
+    "machine learning",
+    "API",
+    "Streamlit",
+    "FastAPI",
+    "React",
+    "Node",
+    "cloud",
+    "Docker",
+    "Kubernetes",
+    "k8s",
+]
 
 
 def _normalize_sentence(sentence: Any) -> str:
@@ -108,19 +117,98 @@ def detect_rewrite_pattern(sentence: str) -> str:
     return "default"
 
 
+def _extract_context_terms(sentence: str) -> list[str]:
+    lowered = sentence.lower()
+    terms = []
+    for term in CONTEXT_TERMS:
+        if term.lower() in lowered:
+            terms.append(term)
+    return terms
+
+
+def _join_terms(terms: list[str]) -> str:
+    if not terms:
+        return ""
+    if len(terms) == 1:
+        return terms[0]
+    if len(terms) == 2:
+        return f"{terms[0]} and {terms[1]}"
+    return f"{', '.join(terms[:-1])}, and {terms[-1]}"
+
+
+def _build_contextual_template(sentence: str, pattern: str, fallback_template: str) -> str:
+    terms = _extract_context_terms(sentence)
+    if not terms:
+        return fallback_template
+
+    lowered = sentence.lower()
+
+    if "missing data" in lowered and ("MICE imputation" in terms or "outlier detection" in terms):
+        method_text = _join_terms(terms[:3])
+        return (
+            f"Handled missing data using {method_text} to improve "
+            "[data quality/model reliability/analysis accuracy] for [project/dataset]."
+        )
+    if "dashboard" in lowered or "dashboards" in lowered:
+        method_terms = [term for term in terms if term.lower() not in {"dashboard", "dashboards"}]
+        method_text = _join_terms(method_terms[:3]) if method_terms else "[tool/method]"
+        return (
+            f"Built [dashboard/reporting workflow] using {method_text} to help "
+            "[stakeholder/user group] monitor [business/process metric]."
+        )
+    if "classification" in lowered or "machine learning" in lowered:
+        method_terms = [term for term in terms if term.lower() not in {"classification", "machine learning"}]
+        method_text = _join_terms(method_terms[:3]) if method_terms else "[modeling method/tool]"
+        return (
+            f"Developed [classification/modeling workflow] using {method_text} to support "
+            "[prediction/analysis goal] for [project/dataset]."
+        )
+    if "api" in lowered or "fastapi" in lowered:
+        method_terms = [term for term in terms if term.lower() != "api"]
+        method_text = _join_terms(method_terms[:3]) if method_terms else "[tool/method]"
+        return (
+            f"Built [API/service] using {method_text} to support "
+            "[application workflow/user need] with [reliability/performance outcome]."
+        )
+    if any(term in terms for term in ("Docker", "Kubernetes", "k8s", "cloud")):
+        method_text = _join_terms(terms[:3])
+        return (
+            f"Supported [deployment/workflow] using {method_text} to improve "
+            "[release reliability/scalability/operational visibility]."
+        )
+
+    method_text = _join_terms(terms[:3])
+    return (
+        f"Applied {method_text} to complete [project/task] and improve "
+        "[business/process/model outcome]."
+    )
+
+
 def suggest_rewrite_for_sentence(sentence: str) -> dict:
     original_sentence = _normalize_sentence(sentence)
     pattern = detect_rewrite_pattern(original_sentence)
     template = PLACEHOLDER_REWRITE_TEMPLATES.get(pattern, PLACEHOLDER_REWRITE_TEMPLATES["default"])
+    rewrite_template = _build_contextual_template(
+        original_sentence,
+        pattern,
+        template["rewrite_template"],
+    )
+    issue_label = template["issue_label"]
 
     return {
+        "issue_type": pattern,
+        "issue_label": issue_label,
         "original_sentence": original_sentence,
         "pattern": pattern,
-        "issue": template["issue"],
-        "why_weak": template["why_weak"],
-        "suggested_rewrite": template["suggested_rewrite"],
-        "stronger_resume_version": template["stronger_resume_version"],
-        "rewrite_tip": template["rewrite_tip"],
+        "issue": issue_label,
+        "explanation": template["explanation"],
+        "why_weak": template["explanation"],
+        "rewrite_formula": REWRITE_FORMULA,
+        "rewrite_template": rewrite_template,
+        "suggested_rewrite": rewrite_template,
+        "customization_tips": CUSTOMIZATION_TIPS,
+        "rewrite_tip": "Customize the template with truthful details from your resume or project history.",
+        "safety_note": SAFETY_NOTE,
     }
 
 
@@ -166,11 +254,14 @@ def generate_rewrite_suggestions(flagged_sentences, max_suggestions: int = 8) ->
 def get_rewrite_summary(suggestions: list[dict]) -> dict:
     items = suggestions or []
     pattern_counts = Counter(
-        item.get("pattern", "default")
+        item.get("issue_type") or item.get("pattern", "default")
         for item in items
         if isinstance(item, dict)
     )
-    top_patterns = [pattern for pattern, _ in pattern_counts.most_common(3)]
+    top_patterns = [
+        PLACEHOLDER_REWRITE_TEMPLATES.get(pattern, PLACEHOLDER_REWRITE_TEMPLATES["default"])["issue_label"]
+        for pattern, _ in pattern_counts.most_common(3)
+    ]
 
     if not items:
         priority_message = "No rewrite suggestions yet."
