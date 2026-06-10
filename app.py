@@ -25,6 +25,15 @@ from src.batch_ranker import (
     rank_batch_results,
 )
 from src.candidate_fit_scorer import build_candidate_fit_score, get_candidate_fit_summary_cards
+from src.fairness_dashboard import (
+    calculate_fairness_summary,
+    get_fairness_intro,
+    get_fairness_limitations,
+    get_fairness_metric_cards,
+    get_fairness_risk_notes,
+    get_responsible_ai_checklist,
+    get_synthetic_fairness_data,
+)
 from src.jd_matcher import analyze_job_description_match, get_match_feedback
 from src.prediction_service import get_top_predictions as get_model_top_predictions
 from src.prediction_service import load_model_artifacts, predict_resume_role
@@ -1207,7 +1216,7 @@ def render_model_transparency_section(prediction_explanation, top_predictions, m
 def render_privacy_responsible_ai_section(privacy_mode: bool) -> None:
     render_navigation_section_title(
         "Privacy & Responsible AI",
-        "Decision-support boundaries, privacy-safe display mode, and future fairness work.",
+        "Decision-support boundaries, privacy-safe display mode, and synthetic fairness monitoring concepts.",
     )
     render_disclaimer_box(
         "ResumeIQ is a decision-support tool. Final hiring or application decisions should be made by humans using complete context."
@@ -1228,19 +1237,81 @@ def render_privacy_responsible_ai_section(privacy_mode: bool) -> None:
             },
         ]
     )
-    st.write(get_privacy_mode_message(privacy_mode))
-    render_alert_banner(
-        "Privacy-safe display mode masks common personal identifiers in review screens and exports where possible. It does not guarantee full anonymization or remove all bias.",
-        "info",
+    st.write(
+        "Privacy-safe mode masks common identifiers for display and exports where possible. "
+        "It does not guarantee full anonymization or remove all bias."
     )
     render_alert_banner(
         "ResumeIQ does not score protected attributes such as age, gender, race, religion, disability, marital status, or immigration status.",
         "info",
     )
-    render_feature_placeholder_card(
-        "Fairness Dashboard",
-        "Planned future feature using synthetic/demo data only. Will not collect or score protected attributes.",
+
+    fairness_intro = get_fairness_intro()
+    render_section_title(
+        fairness_intro.get("title", "Responsible AI Fairness Dashboard"),
+        fairness_intro.get(
+            "description",
+            "Synthetic/demo monitoring view for understanding fairness risks in resume screening workflows.",
+        ),
     )
+    render_alert_banner(fairness_intro.get("disclaimer", ""), "info")
+    render_alert_banner(
+        f"{fairness_intro.get('safe_use', '')} ResumeIQ is not a hiring decision system and requires human review.",
+        "warning",
+    )
+
+    synthetic_rows = get_synthetic_fairness_data()
+    fairness_summary = calculate_fairness_summary(synthetic_rows)
+    fairness_cards = get_fairness_metric_cards(fairness_summary)
+    card_columns = st.columns(len(fairness_cards), gap="medium")
+    for column, card in zip(card_columns, fairness_cards):
+        with column:
+            render_metric_card(card.get("title", ""), card.get("value", ""), card.get("helper_text", ""))
+
+    st.markdown("##### Synthetic aggregate monitoring table")
+    fairness_df = pd.DataFrame(synthetic_rows).rename(
+        columns={
+            "group": "Group",
+            "applicants": "Applicants",
+            "average_fit_score": "Average Fit Score",
+            "recommended_for_review_rate": "Review Rate",
+            "shortlist_rate": "Shortlist Rate",
+            "false_positive_proxy": "False Positive Proxy",
+            "false_negative_proxy": "False Negative Proxy",
+        }
+    )
+    st.dataframe(fairness_df, width="stretch", hide_index=True)
+
+    chart_df = fairness_df.set_index("Group")[["Review Rate"]]
+    st.bar_chart(chart_df)
+    st.caption(
+        "Review Rate chart uses synthetic/demo data only. It is a monitoring concept and is not connected to real candidate records."
+    )
+
+    notes_col, checklist_col = st.columns(2, gap="large")
+    with notes_col:
+        render_section_title("Risk Notes")
+        for note in get_fairness_risk_notes(fairness_summary):
+            st.markdown(f"- {note}")
+
+    with checklist_col:
+        render_section_title("Responsible AI Checklist")
+        checklist_rows = get_responsible_ai_checklist()
+        for item in checklist_rows:
+            st.markdown(
+                f"""
+                <div class="panel-card">
+                    <div class="section-label">{item.get("title", "")}</div>
+                    <div class="badge-row"><span class="ui-badge">{item.get("status", "")}</span></div>
+                    <div class="subtle">{item.get("description", "")}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+    with st.expander("Fairness dashboard limitations", expanded=False):
+        for limitation in get_fairness_limitations():
+            st.markdown(f"- {limitation}")
 
 
 def render_job_application_assistant_placeholder() -> None:
