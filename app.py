@@ -1,3 +1,5 @@
+import re
+from collections import Counter
 from io import BytesIO
 
 import pandas as pd
@@ -196,13 +198,13 @@ def render_analysis_overview(
     )
     c1, c2, c3, c4 = st.columns(4, gap="medium")
     with c1:
-        render_metric_card("Predicted Role", predicted_role, "Top classification output")
+        render_metric_card("Predicted Role", predicted_role, "Current classifier output")
     with c2:
-        render_metric_card("Model Confidence", confidence_display, "Highest class probability")
+        render_metric_card("Model Confidence", confidence_display, "Baseline model signal")
     with c3:
-        render_metric_card("ATS Score", f"{ats_result.get('ats_score', 0)}%", ats_result.get("grade"))
+        render_metric_card("ATS Compatibility Score", f"{ats_result.get('ats_score', 0)}%", ats_result.get("grade"))
     with c4:
-        render_metric_card("JD Match Score", f"{match_score:.2%}", "Skill overlap with target job")
+        render_metric_card("JD Keyword Match", f"{match_score:.2%}", "Skill overlap with target job")
 
     st.markdown(
         f"""
@@ -241,7 +243,7 @@ def render_analysis_overview(
         for item in risks:
             st.markdown(f"- {item}")
 
-    render_section_title("Recruiter-Style Interpretation")
+    render_section_title("Decision-Support Interpretation")
     if match_score >= 0.65:
         render_alert_banner(get_match_feedback(match_score), "success")
     elif match_score >= 0.35:
@@ -251,7 +253,7 @@ def render_analysis_overview(
 
     render_section_title("Recommended Next Step")
     if missing_count > 0:
-        st.write("Focus resume improvement on the missing skills and tailor project descriptions around the target role.")
+        st.write("Focus resume improvements on relevant missing skills and tailor project descriptions around the target role.")
     else:
         st.write("The candidate already aligns well. The next step is strengthening achievement-based bullet points.")
 
@@ -294,7 +296,7 @@ def render_resume_improvement_report(report: dict) -> None:
 def render_candidate_fit_section(candidate_fit_result: dict, role_profile_summary: dict | None = None) -> None:
     render_section_title(
         "Multi-Score Candidate Fit",
-        "A local, explainable fit estimate that combines resume, job-description, ATS, quality, and model signals.",
+        "An explainable local estimate that combines resume, job-description, ATS, quality, and model signals.",
     )
     st.write(candidate_fit_result.get("summary", ""))
 
@@ -318,7 +320,7 @@ def render_candidate_fit_section(candidate_fit_result: dict, role_profile_summar
         if role_profile_summary.get("role_guidance"):
             st.write(role_profile_summary.get("role_guidance"))
         render_alert_banner(
-            "ResumeIQ adjusts candidate fit weights based on the target role. This is a local rule-based profile, not an automatic hiring decision.",
+            "ResumeIQ adjusts fit-signal weights based on the target role. This is a local rule-based profile, not a hiring decision.",
             "info",
         )
 
@@ -419,10 +421,10 @@ def render_recruiter_workflow_section(ranked_rows: list[dict], privacy_mode: boo
                 key=f"review_status_{review_key}",
             )
             note = st.text_area(
-                "Recruiter/user note",
+                "Recruiter Note",
                 value=current_note,
                 key=f"review_note_{review_key}",
-                placeholder="Add session-local review notes here...",
+                placeholder="Add session-local review notes...",
             )
             st.session_state["recruiter_review_state"][review_key] = {
                 "status": status,
@@ -460,8 +462,8 @@ def render_recruiter_workflow_section(ranked_rows: list[dict], privacy_mode: boo
 
 def render_prediction_explanation_section(prediction_explanation: dict) -> None:
     render_section_title(
-        "Prediction Explainability",
-        "Local explanation for the current baseline role classifier.",
+        "Local Baseline Explanation",
+        "Terms that may have influenced the current classifier output.",
     )
 
     cards = get_prediction_explanation_cards(prediction_explanation)
@@ -504,10 +506,10 @@ def render_batch_ranking_section(job_description: str, privacy_mode: bool = Fals
         "Upload multiple resumes and compare them against the pasted job description using ResumeIQ fit signals.",
     )
     render_alert_banner(
-        "This is a decision-support ranking, not an automatic hiring decision.",
+        "This is a decision-support ranking. Review the full resume and job context before making decisions.",
         "info",
     )
-    st.info("Batch semantic matching may take longer on the first run because the local embedding model may need to load.")
+    st.info("First run may take longer while the local semantic model loads.")
 
     batch_uploaded_files = st.file_uploader(
         "Upload multiple resumes",
@@ -520,7 +522,7 @@ def render_batch_ranking_section(job_description: str, privacy_mode: bool = Fals
 
     ensure_batch_file_store()
 
-    render_section_title("Or Add Resumes One At A Time")
+    render_section_title("Or Add Resumes One at a Time")
     single_batch_file = st.file_uploader(
         "Add one resume to batch",
         type=["pdf", "docx", "txt"],
@@ -610,17 +612,12 @@ def render_batch_ranking_section(job_description: str, privacy_mode: bool = Fals
                 render_metric_card(card.get("title", ""), card.get("value", ""), card.get("helper_text", ""))
 
         render_section_title("Ranked Resumes by Fit Signals")
-        if privacy_mode:
-            render_alert_banner(
-                "Privacy-safe mode masks common identifiers for display. It does not guarantee full anonymization or bias removal.",
-                "info",
-            )
         st.caption(summary.get("top_candidate_label", ""))
         st.dataframe(pd.DataFrame(display_rows), width="stretch", hide_index=True)
 
         csv_data = convert_rows_to_csv(display_rows)
         st.download_button(
-            "Download Ranked CSV",
+            "Download Ranking CSV",
             data=csv_data,
             file_name="resumeiq_batch_ranking.csv",
             mime="text/csv",
@@ -660,7 +657,7 @@ def render_ats_section(ats_result: dict, has_job_description: bool) -> None:
         render_score_summary(
             "ATS Compatibility Score",
             ats_result.get("ats_score"),
-            helper_text="Estimated resume compatibility",
+            helper_text="Estimated compatibility signal",
         )
     with grade_col:
         render_metric_card("Grade", ats_result.get("grade", "N/A"), "Structure, keywords, skills, and alignment")
@@ -947,11 +944,6 @@ def render_semantic_match_section(semantic_result: dict, privacy_mode: bool = Fa
     else:
         render_alert_banner("No weak JD chunks detected by semantic matching.", "success")
 
-    if privacy_mode:
-        render_alert_banner(
-            "Privacy-safe mode masks common identifiers for display. It does not guarantee full anonymization or bias removal.",
-            "info",
-        )
     render_alert_banner(semantic_result.get("disclaimer", ""), "info")
 
 
@@ -999,10 +991,36 @@ def render_skills_intelligence_section(resume_skills, gap, role_profile_summary,
     render_skill_taxonomy_breakdown(skill_taxonomy_result)
 
 
-def render_rewrite_suggestions_section(rewrite_suggestions, rewrite_summary) -> None:
+def _preview_sentence(sentence: str, max_words: int = 9) -> str:
+    cleaned = re.sub(r"\s+", " ", str(sentence or "")).strip()
+    if not cleaned:
+        return "review flagged sentence"
+    words = cleaned.split()
+    preview = " ".join(words[:max_words])
+    if len(words) > max_words:
+        preview += "..."
+    return preview
+
+
+def format_suggestion_title(index: int, issue_label: str, original_sentence: str) -> str:
+    label = str(issue_label or "Rewrite suggestion").strip()
+    preview = _preview_sentence(original_sentence)
+    return f"{index}. {label} - {preview}"
+
+
+def render_rewrite_suggestions_section(
+    rewrite_suggestions,
+    rewrite_summary,
+    privacy_mode: bool = False,
+    candidate_name: str = "",
+) -> None:
     render_section_title(
         "Humanized Rewrite Suggestions",
-        "Local, template-based suggestions. They do not invent achievements; replace placeholders with real details.",
+        "Local template-based rewrite suggestions from flagged resume sentences.",
+    )
+    render_alert_banner(
+        "These are local template-based rewrite suggestions from flagged resume sentences. They help improve clarity and structure but do not create final AI-generated bullets or invent achievements.",
+        "info",
     )
 
     if not rewrite_suggestions:
@@ -1024,26 +1042,49 @@ def render_rewrite_suggestions_section(rewrite_suggestions, rewrite_summary) -> 
         render_badge_group(rewrite_summary.get("top_patterns", []))
 
     render_alert_banner(rewrite_summary.get("priority_message", ""), "info")
+    issue_counts = Counter(
+        suggestion.get("issue_type") or suggestion.get("pattern", "default")
+        for suggestion in rewrite_suggestions
+        if isinstance(suggestion, dict)
+    )
+    if any(count > 1 for count in issue_counts.values()):
+        st.caption("Repeated issue types mean multiple resume sentences have the same writing pattern.")
 
     for index, suggestion in enumerate(rewrite_suggestions, start=1):
-        with st.expander(f"{index}. {suggestion.get('issue', 'Rewrite suggestion')}", expanded=index == 1):
-            st.markdown("##### Original sentence")
-            st.write(suggestion.get("original_sentence", ""))
+        original_sentence = suggestion.get("original_sentence", "")
+        display_sentence = original_sentence
+        if privacy_mode:
+            display_sentence = mask_pii(display_sentence, candidate_name=candidate_name)
+        title = format_suggestion_title(
+            index,
+            suggestion.get("issue_label") or suggestion.get("issue", "Rewrite suggestion"),
+            display_sentence,
+        )
+        with st.expander(title, expanded=index == 1):
+            st.markdown("##### Flagged sentence")
+            st.markdown(f"> {display_sentence}")
 
-            st.markdown("##### Issue")
-            st.write(suggestion.get("issue", ""))
+            st.markdown("##### Why this needs attention")
+            st.write(suggestion.get("explanation") or suggestion.get("why_weak", "Review this sentence for clarity and specificity."))
 
-            st.markdown("##### Why it may be weak")
-            st.write(suggestion.get("why_weak", ""))
+            st.markdown("##### Suggested rewrite pattern")
+            st.code(suggestion.get("rewrite_formula", "Action Verb + Task + Tool/Method + Result/Impact"), language="text")
 
-            st.markdown("##### Suggested rewrite template")
-            st.write(suggestion.get("suggested_rewrite", ""))
+            st.markdown("##### Rewrite template")
+            st.write(suggestion.get("rewrite_template") or suggestion.get("suggested_rewrite", ""))
 
-            st.markdown("##### Stronger resume version")
-            st.write(suggestion.get("stronger_resume_version", ""))
+            st.markdown("##### How to customize")
+            tips = suggestion.get("customization_tips") or [
+                "Replace placeholders with truthful project/task details.",
+                "Add tools or methods only if you actually used them.",
+                "Add measurable results only if you can support them.",
+            ]
+            for tip in tips[:3]:
+                st.markdown(f"- {tip}")
 
-            st.markdown("##### Rewrite tip")
-            st.write(suggestion.get("rewrite_tip", ""))
+            safety_note = suggestion.get("safety_note")
+            if safety_note:
+                st.caption(safety_note)
 
 
 def render_resume_preview_section(parser_result, resume_text, job_description, template_detection, template_severity, privacy_mode) -> None:
@@ -1169,7 +1210,7 @@ def render_privacy_responsible_ai_section(privacy_mode: bool) -> None:
         "Decision-support boundaries, privacy-safe display mode, and future fairness work.",
     )
     render_disclaimer_box(
-        "ResumeIQ is a decision-support tool. It does not make hiring decisions, and outputs should be reviewed by a human."
+        "ResumeIQ is a decision-support tool. Final hiring or application decisions should be made by humans using complete context."
     )
     render_workflow_status(
         [
@@ -1189,12 +1230,16 @@ def render_privacy_responsible_ai_section(privacy_mode: bool) -> None:
     )
     st.write(get_privacy_mode_message(privacy_mode))
     render_alert_banner(
+        "Privacy-safe display mode masks common personal identifiers in review screens and exports where possible. It does not guarantee full anonymization or remove all bias.",
+        "info",
+    )
+    render_alert_banner(
         "ResumeIQ does not score protected attributes such as age, gender, race, religion, disability, marital status, or immigration status.",
         "info",
     )
     render_feature_placeholder_card(
         "Fairness Dashboard",
-        "Planned future feature using synthetic/demo data only. Privacy safeguards required before expanding responsible-AI reporting.",
+        "Planned future feature using synthetic/demo data only. Will not collect or score protected attributes.",
     )
 
 
@@ -1203,7 +1248,7 @@ def render_job_application_assistant_placeholder() -> None:
         "Job Application Assistant",
         "Future tools for candidate-facing documents.",
     )
-    placeholder_text = "Planned future feature. Privacy safeguards required and user consent required before using external AI."
+    placeholder_text = "Planned future feature. Requires privacy safeguards and user consent before using external AI."
     cards = [
         "Tailored Resume Guidance",
         "Cover Letter Draft",
@@ -1362,7 +1407,7 @@ render_page_header()
 
 with st.sidebar:
     st.markdown("### Project Controls")
-    use_sample_jd = st.toggle("Use sample ML/Data Science JD", value=False)
+    use_sample_jd = st.toggle("Use sample job description", value=False)
     privacy_mode = st.toggle(
         "Privacy-safe display mode",
         value=False,
@@ -1472,10 +1517,11 @@ with top_right:
         <div class="panel-card">
             <div class="section-label">Dashboard Overview</div>
             <div class="subtle">
-                This tool simulates a recruiter-assist workflow:
-                it reads resume content, predicts the most likely role,
+                ResumeIQ supports a recruiter and candidate review workflow:
+                it reads resume content, estimates the most likely role,
                 extracts candidate skills, compares them against a target job,
-                and surfaces missing skills for faster decision-making.
+                and surfaces fit signals for human review.
+                Final hiring or application decisions should be made by humans using complete context.
             </div>
         </div>
         """,
@@ -1489,9 +1535,9 @@ with top_right:
             <div class="subtle">
                 1. Upload a resume<br>
                 2. Paste a target job description<br>
-                3. Review predicted role and confidence<br>
-                4. Examine skill match and missing skills<br>
-                5. Explain how this supports hiring or candidate preparation
+                3. Review candidate overview<br>
+                4. Examine job-match and quality signals<br>
+                5. Export recruiter-ready notes if needed
             </div>
         </div>
         """,
@@ -1503,7 +1549,7 @@ with top_right:
         <div class="panel-card">
             <div class="section-label">Tech Stack</div>
             <div class="subtle">
-                Python • Streamlit • scikit-learn • pandas • pypdf • Azure Deployment
+                Python • Streamlit • scikit-learn • pandas • pypdf
             </div>
         </div>
         """,
@@ -1709,7 +1755,13 @@ else:
                 render_alert_banner(template_message, "info")
             render_sentence_quality_section(sentence_quality_result)
             render_structure_advisor(structure_advice)
-            render_rewrite_suggestions_section(rewrite_suggestions, rewrite_summary)
+            candidate_name = get_candidate_name_from_parser(parser_result)
+            render_rewrite_suggestions_section(
+                rewrite_suggestions,
+                rewrite_summary,
+                privacy_mode=privacy_mode,
+                candidate_name=candidate_name,
+            )
             render_resume_improvement_report(resume_improvement_report)
 
         with match_tab:
@@ -1764,6 +1816,6 @@ else:
             render_job_application_assistant_placeholder()
 
 st.markdown(
-    '<div class="footer-note">Built with Streamlit, scikit-learn, pandas, and pypdf. Designed as a portfolio-grade NLP + ML dashboard and ready for GitHub + Azure deployment.</div>',
+    '<div class="footer-note">Built with Streamlit, scikit-learn, pandas, and pypdf. Designed as a responsible local resume intelligence dashboard.</div>',
     unsafe_allow_html=True,
 )

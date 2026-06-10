@@ -25,7 +25,7 @@ def render_hero() -> None:
         "AI-Like Writing Detection",
         "Rewrite Suggestions",
         "Job Matching",
-        "Azure Deployable",
+        "Local Decision Support",
     ]
     badge_markup = "".join(f'<span class="hero-chip">{escape(badge)}</span>' for badge in badges)
     st.markdown(
@@ -35,8 +35,8 @@ def render_hero() -> None:
             <h1 class="resumeiq-title">ResumeIQ</h1>
             <div class="resumeiq-subtitle">AI Resume Intelligence &amp; Job Application Assistant</div>
             <div class="resumeiq-description">
-                Analyze resume fit, ATS compatibility, skill gaps, writing quality, and
-                job-description alignment in one recruiter-style dashboard.
+                Analyze resumes, compare them with job descriptions, review candidate fit, and prepare
+                recruiter-ready insights using local decision-support workflows.
             </div>
             <div class="badge-row">{badge_markup}</div>
         </div>
@@ -64,7 +64,7 @@ def render_page_header() -> None:
                 recruiter-ready insights using local decision-support workflows.
             </div>
             <div class="badge-row">{badge_markup}</div>
-            <div class="hero-disclaimer">Decision-support tool. Not a hiring decision system.</div>
+            <div class="hero-disclaimer">Decision-support tool. Human review required.</div>
         </div>
         """,
         unsafe_allow_html=True,

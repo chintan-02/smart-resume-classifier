@@ -1,1 +1,1 @@
-"""Core application modules for the Smart Resume Classifier."""
+"""Core application modules for ResumeIQ."""

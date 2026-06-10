@@ -14,7 +14,7 @@ SAMPLE_JD_PATH = DATA_DIR / "sample_job_description.txt"
 SUPPORTED_FILE_TYPES = ["pdf", "txt", "docx"]
 SUPPORTED_FILE_EXTENSIONS = {".pdf", ".txt", ".docx"}
 
-APP_TITLE = "Smart Resume Classifier"
+APP_TITLE = "ResumeIQ"
 APP_PAGE_ICON = "📄"
 APP_LAYOUT = "wide"
 APP_INITIAL_SIDEBAR_STATE = "expanded"
