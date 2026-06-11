@@ -192,6 +192,40 @@ Docker uses a local SQLite database stored in a Docker volume. No external AI AP
 
 ---
 
+## CI/CD
+
+ResumeIQ uses GitHub Actions to automatically run:
+
+* dependency installation
+* database initialization smoke test
+* pytest test suite
+* FastAPI import smoke test
+* Docker Compose config validation
+
+Workflow file:
+
+```
+.github/workflows/ci.yml
+```
+
+Status:
+
+Runs on push and pull request to `main`.
+
+Test locally before pushing:
+
+```bash
+pytest
+python -m database.init_db
+python - <<'PY'
+from backend.main import app
+print(app.title)
+PY
+docker compose config
+```
+
+---
+
 ## 🔁 Retrain Model
 
 ```bash

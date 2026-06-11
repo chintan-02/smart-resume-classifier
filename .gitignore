@@ -1,8 +1,11 @@
 # Python
 __pycache__/
+**/__pycache__/
+**pycache**/
 *.pyc
 *.pyo
 *.pyd
+.pytest_cache/
 
 # Jupyter
 .ipynb_checkpoints/
@@ -31,7 +34,8 @@ artifacts/*.joblib
 
 # Data (optional - only if large)
 # data/*.csv
-# data/*.txtresumeiq.db
+resumeiq.db
+test_resumeiq_ci.db
 *.db
 *.sqlite
 *.sqlite3
