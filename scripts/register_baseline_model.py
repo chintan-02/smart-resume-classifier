@@ -14,9 +14,11 @@ from model_registry.registry import (
     register_model_version,
     save_model_registry,
 )
+from src.settings import get_settings
 
 
-MODEL_CARD_PATH = BASE_DIR / "artifacts" / "model_registry" / "model_card_baseline.json"
+MODEL_REGISTRY_PATH = Path(get_settings().model_registry_path)
+MODEL_CARD_PATH = BASE_DIR / MODEL_REGISTRY_PATH.parent / "model_card_baseline.json"
 METADATA_CANDIDATES = [
     BASE_DIR / "artifacts" / "model_metrics.json",
     BASE_DIR / "artifacts" / "evaluation_metrics.json",

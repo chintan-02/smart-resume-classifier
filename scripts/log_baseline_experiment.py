@@ -7,9 +7,10 @@ if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
 from experiment_tracking.mlflow_tracker import log_baseline_experiment
+from src.settings import get_settings
 
 
-REGISTRY_PATH = BASE_DIR / "artifacts" / "model_registry" / "model_registry.json"
+REGISTRY_PATH = BASE_DIR / get_settings().model_registry_path
 
 
 def _load_latest_registry_record() -> dict:

@@ -5,7 +5,7 @@
       "model_name": "ResumeIQ Baseline Resume Classifier",
       "model_version": "baseline-v1",
       "model_type": "TF-IDF + Logistic Regression",
-      "created_at": "2026-06-11T06:53:43.460483+00:00",
+      "created_at": "2026-06-11T16:41:10.950625+00:00",
       "artifact_reference": "local artifacts / current classifier pipeline",
       "metrics": {
         "accuracy": 1.0,
