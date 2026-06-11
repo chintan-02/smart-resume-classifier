@@ -5,6 +5,12 @@ from io import BytesIO
 import pandas as pd
 import streamlit as st
 
+from src.api_client import (
+    analyze_resume_via_api,
+    check_api_health,
+    check_api_ready,
+    get_api_base_url,
+)
 from src.app_config import (
     APP_INITIAL_SIDEBAR_STATE,
     APP_LAYOUT,
@@ -265,6 +271,63 @@ def render_analysis_overview(
         st.write("Focus resume improvements on relevant missing skills and tailor project descriptions around the target role.")
     else:
         st.write("The candidate already aligns well. The next step is strengthening achievement-based bullet points.")
+
+
+def _format_optional_percent(value, is_fraction: bool = False) -> str:
+    if value is None:
+        return "N/A"
+    if isinstance(value, (int, float)):
+        number = value * 100 if is_fraction else value
+        return f"{number:.1f}%"
+    return str(value)
+
+
+def render_backend_analysis_snapshot(api_result: dict | None) -> None:
+    if not api_result:
+        return
+
+    data = api_result.get("data") or {}
+    render_section_title(
+        "Backend Analysis Snapshot",
+        "Compact FastAPI response shown alongside the full local Streamlit analysis.",
+    )
+
+    if not api_result.get("success"):
+        render_alert_banner(api_result.get("message", "Backend analysis is unavailable."), "warning")
+        return
+
+    status_col, role_col, confidence_col, ats_col, match_col = st.columns(5, gap="medium")
+    with status_col:
+        render_metric_card("API Status", data.get("status", "success"), api_result.get("message"))
+    with role_col:
+        render_metric_card("Predicted Role", data.get("predicted_role") or "N/A", "Backend classifier signal")
+    with confidence_col:
+        render_metric_card(
+            "Model Confidence",
+            _format_optional_percent(data.get("model_confidence")),
+            "Backend model signal",
+        )
+    with ats_col:
+        render_metric_card(
+            "ATS Score",
+            _format_optional_percent(data.get("ats_score")),
+            "Backend ATS estimate",
+        )
+    with match_col:
+        render_metric_card(
+            "JD Match",
+            _format_optional_percent(data.get("jd_match_score"), is_fraction=True),
+            "Backend keyword match",
+        )
+
+    priority_actions = data.get("priority_actions", [])
+    if priority_actions:
+        render_section_title("Backend Priority Actions")
+        for action in priority_actions[:5]:
+            st.markdown(f"- {action}")
+
+    if data.get("disclaimer"):
+        render_alert_banner(data.get("disclaimer"), "info")
 
 
 def render_resume_improvement_report(report: dict) -> None:
@@ -1487,6 +1550,30 @@ with st.sidebar:
     st.caption(get_privacy_mode_message(privacy_mode))
 
     st.markdown("---")
+    st.markdown("### Backend API")
+    api_base_url = get_api_base_url()
+    use_fastapi_backend = st.toggle("Use FastAPI backend when available", value=False)
+    st.caption(f"Backend URL: {api_base_url}")
+    check_backend_clicked = st.button("Check Backend Status")
+    backend_health = None
+    backend_ready = None
+    if check_backend_clicked or use_fastapi_backend:
+        backend_health = check_api_health(api_base_url)
+        if backend_health.get("available"):
+            backend_ready = check_api_ready(api_base_url)
+            st.success("Backend API is available. Streamlit can use API analysis.")
+        else:
+            st.info("Backend API is offline. Streamlit is using local analysis.")
+    else:
+        st.caption("Backend check is optional. Local Streamlit analysis remains available.")
+
+    analysis_mode_slot = st.empty()
+    analysis_mode_slot.caption("Analysis mode: Local")
+    if backend_ready and backend_ready.get("checks"):
+        with st.expander("Backend readiness checks", expanded=False):
+            st.json(backend_ready.get("checks", {}))
+
+    st.markdown("---")
     input_status_slot = st.container()
 
     st.markdown("---")
@@ -1765,6 +1852,22 @@ else:
             role_profile=role_profile,
         )
 
+        api_analysis_result = None
+        if use_fastapi_backend:
+            with st.spinner("Checking FastAPI backend analysis..."):
+                api_analysis_result = analyze_resume_via_api(
+                    resume_text=resume_text,
+                    job_description=job_description,
+                    privacy_mode=privacy_mode,
+                    base_url=api_base_url,
+                )
+            if api_analysis_result.get("success"):
+                analysis_mode_slot.caption("Analysis mode: FastAPI backend")
+            else:
+                analysis_mode_slot.caption("Analysis mode: Local")
+        else:
+            analysis_mode_slot.caption("Analysis mode: Local")
+
         (
             overview_tab,
             quality_tab,
@@ -1812,6 +1915,7 @@ else:
                     "Model confidence is low; use the combined fit signals instead of relying only on the predicted role.",
                     "warning",
                 )
+            render_backend_analysis_snapshot(api_analysis_result)
 
         with quality_tab:
             render_navigation_section_title(
