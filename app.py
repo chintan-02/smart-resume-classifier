@@ -59,6 +59,11 @@ from src.privacy_tools import (
     get_privacy_mode_message,
     mask_pii,
 )
+from src.rag_copilot import (
+    ask_recruiter_copilot,
+    get_copilot_safety_notes,
+    get_sample_copilot_questions,
+)
 from src.recruiter_workflow import (
     build_review_records,
     convert_review_records_to_csv,
@@ -700,6 +705,106 @@ def render_recruiter_workflow_section(ranked_rows: list[dict], privacy_mode: boo
                 if key.startswith("review_status_") or key.startswith("review_note_"):
                     del st.session_state[key]
             st.rerun()
+
+
+def render_recruiter_copilot_section(
+    resume_text: str,
+    job_description: str,
+    privacy_mode: bool = False,
+    candidate_name: str = "",
+) -> None:
+    render_section_title(
+        "Recruiter Copilot — Local Evidence Search",
+        "Ask recruiter-style questions and retrieve supporting evidence from the current resume and job description.",
+    )
+    render_alert_banner(
+        "This foundation version uses local retrieval only. It does not call external AI services and does not make hiring decisions.",
+        "info",
+    )
+
+    if not str(resume_text or "").strip():
+        render_empty_state(
+            "Upload a resume to use the recruiter copilot.",
+            "The copilot searches the current uploaded resume and optional job description during this Streamlit session only.",
+        )
+        return
+
+    if not str(job_description or "").strip():
+        render_alert_banner("Add a job description for stronger job-match answers.", "info")
+
+    with st.expander("Copilot safety notes", expanded=False):
+        for note in get_copilot_safety_notes():
+            st.markdown(f"- {note}")
+
+    sample_questions = get_sample_copilot_questions()
+    sample_question_key = "recruiter_copilot_sample_question"
+    query_key = "recruiter_copilot_query"
+    synced_question_key = "recruiter_copilot_last_synced_question"
+
+    if sample_question_key not in st.session_state or st.session_state[sample_question_key] not in sample_questions:
+        st.session_state[sample_question_key] = sample_questions[0]
+    if (
+        query_key not in st.session_state
+        or st.session_state.get(query_key) in sample_questions
+        or st.session_state.get(query_key) == st.session_state.get(synced_question_key)
+    ):
+        st.session_state[query_key] = st.session_state[sample_question_key]
+        st.session_state[synced_question_key] = st.session_state[sample_question_key]
+
+    def sync_copilot_query_with_sample() -> None:
+        st.session_state[query_key] = st.session_state[sample_question_key]
+        st.session_state[synced_question_key] = st.session_state[sample_question_key]
+
+    st.selectbox(
+        "Sample recruiter questions",
+        options=sample_questions,
+        key=sample_question_key,
+        on_change=sync_copilot_query_with_sample,
+    )
+    query = st.text_input(
+        "Ask a recruiter question",
+        key=query_key,
+    )
+
+    if st.button("Search Evidence", key="recruiter_copilot_search"):
+        result = ask_recruiter_copilot(
+            query=query,
+            resume_text=resume_text,
+            job_description=job_description,
+            privacy_mode=privacy_mode,
+            candidate_name=candidate_name,
+        )
+        st.session_state["recruiter_copilot_result"] = result
+
+    result = st.session_state.get("recruiter_copilot_result")
+    if not result:
+        return
+
+    st.markdown("##### Answer")
+    st.write(result.get("answer", ""))
+
+    evidence = result.get("evidence", [])
+    if evidence:
+        st.markdown("##### Evidence snippets")
+        for item in evidence:
+            source_label = "Job Description" if item.get("source") == "job_description" else "Resume"
+            score = item.get("score", 0)
+            with st.expander(f"{item.get('rank')}. {source_label} evidence - similarity {score:.2f}"):
+                st.caption(f"Source: {source_label} | Chunk: {item.get('chunk_id', 'N/A')}")
+                st.write(item.get("text", ""))
+    else:
+        render_empty_state(
+            "No strong evidence found",
+            "Try asking with more specific keywords from the resume or job description.",
+        )
+
+    limitations = result.get("limitations", [])
+    if limitations:
+        st.markdown("##### Limitations")
+        for limitation in limitations:
+            st.markdown(f"- {limitation}")
+
+    render_disclaimer_box(result.get("disclaimer", ""))
 
 
 def render_prediction_explanation_section(prediction_explanation: dict) -> None:
@@ -2412,6 +2517,13 @@ else:
             render_navigation_section_title(
                 "Recruiter Workspace",
                 "Batch ranking, priority actions, manual notes, shortlist status, and CSV exports.",
+            )
+            candidate_name = get_candidate_name_from_parser(parser_result)
+            render_recruiter_copilot_section(
+                resume_text=resume_text,
+                job_description=job_description,
+                privacy_mode=privacy_mode,
+                candidate_name=candidate_name,
             )
             render_batch_ranking_section(
                 job_description,

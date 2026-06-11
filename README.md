@@ -263,6 +263,30 @@ Remote MLflow tracking, model artifact logging, and deployment governance are fu
 
 ---
 
+## RAG Recruiter Copilot Foundation
+
+ResumeIQ includes a local retrieval-only recruiter copilot foundation. It uses TF-IDF similarity over text chunks from the current uploaded resume and optional job description.
+
+What it does:
+
+* chunks the current resume and job description in memory
+* retrieves relevant evidence snippets for recruiter-style questions
+* shows source labels and similarity scores
+* uses cautious rule-based answer templates
+* masks common resume identifiers when privacy-safe display mode is enabled
+
+What it does not do yet:
+
+* no external LLM or AI API calls
+* no API keys
+* no vector database service
+* no storage of full resume or job-description text
+* no automated hiring decisions
+
+The copilot is designed for evidence search only. A future step may add LLM summarization with explicit consent, PII safeguards, and fallback behavior.
+
+---
+
 ## Logging & Monitoring
 
 ResumeIQ includes a local logging and monitoring foundation:
