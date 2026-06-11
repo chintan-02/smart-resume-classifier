@@ -1,3 +1,4 @@
+import hashlib
 import re
 from collections import Counter
 from io import BytesIO
@@ -85,6 +86,14 @@ from src.ui.ui_components import (
     render_workflow_status,
 )
 from src.ui.ui_styles import apply_global_styles
+from database.db import get_db_session
+from database.repositories import (
+    create_analysis_run,
+    create_audit_log,
+    create_batch_ranking_run,
+    create_candidate_review_record,
+    list_recent_analysis_runs,
+)
 
 st.set_page_config(
     page_title=APP_TITLE,
@@ -330,6 +339,128 @@ def render_backend_analysis_snapshot(api_result: dict | None) -> None:
         render_alert_banner(data.get("disclaimer"), "info")
 
 
+def _normalize_db_score(value):
+    if value is None or value == "":
+        return None
+    if isinstance(value, (int, float)):
+        score = float(value)
+    else:
+        cleaned = str(value).strip().replace("%", "")
+        if not cleaned:
+            return None
+        try:
+            score = float(cleaned)
+        except ValueError:
+            return None
+    if 0 < score <= 1:
+        score *= 100
+    return round(score, 2)
+
+
+def _safe_job_description_hash(job_description: str) -> str | None:
+    text = str(job_description or "").strip()
+    if not text:
+        return None
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
+
+def _safe_history_value(value):
+    if value is None:
+        return ""
+    return value
+
+
+def fetch_recent_analysis_history(limit: int = 5) -> list[dict]:
+    try:
+        with get_db_session() as session:
+            rows = list_recent_analysis_runs(session, limit=limit)
+            return [
+                {
+                    "created_at": row.created_at,
+                    "source": row.source,
+                    "predicted_role": row.predicted_role,
+                    "ats_score": _safe_history_value(row.ats_score),
+                    "jd_match_score": _safe_history_value(row.jd_match_score),
+                    "overall_fit_score": _safe_history_value(row.overall_fit_score),
+                    "recommendation": row.recommendation,
+                }
+                for row in rows
+            ]
+    except Exception:
+        return []
+
+
+def render_recent_analysis_history() -> None:
+    st.markdown("### Recent Saved Analysis Runs")
+    rows = fetch_recent_analysis_history(limit=5)
+    if not rows:
+        st.caption("Saved history is unavailable until the local database is initialized.")
+        return
+    st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
+
+
+def save_streamlit_analysis_summary(data: dict) -> bool:
+    try:
+        with get_db_session() as session:
+            create_analysis_run(session, data)
+            create_audit_log(
+                session,
+                event_type="analysis_saved",
+                event_source="streamlit",
+                message="Analysis summary saved to database",
+            )
+        return True
+    except Exception:
+        return False
+
+
+def save_streamlit_batch_summary(
+    ranked_rows: list[dict],
+    review_records: list[dict],
+    job_description: str,
+    privacy_mode: bool,
+) -> bool:
+    try:
+        summary = get_batch_summary(ranked_rows)
+        with get_db_session() as session:
+            batch_run = create_batch_ranking_run(
+                session,
+                {
+                    "job_description_hash": _safe_job_description_hash(job_description),
+                    "total_resumes": summary.get("total_resumes", 0),
+                    "average_fit_score": summary.get("average_fit_score"),
+                    "recommended_count": summary.get("recommended_for_review", 0),
+                    "privacy_mode": privacy_mode,
+                    "notes": "Saved from Streamlit batch ranking",
+                },
+            )
+            for record in review_records:
+                create_candidate_review_record(
+                    session,
+                    {
+                        "batch_run_id": batch_run.id,
+                        "candidate_label": record.get("Candidate"),
+                        "resume_filename": record.get("File"),
+                        "rank": record.get("Rank"),
+                        "overall_fit_score": record.get("Overall Fit Score"),
+                        "fit_label": record.get("Fit Label"),
+                        "recommendation": record.get("Recommendation"),
+                        "manual_review_status": record.get("Manual Review Status"),
+                        "recruiter_note": record.get("Recruiter Note"),
+                        "priority_actions": record.get("Priority Actions"),
+                    },
+                )
+            create_audit_log(
+                session,
+                event_type="batch_summary_saved",
+                event_source="streamlit",
+                message="Batch summary saved to database",
+            )
+        return True
+    except Exception:
+        return False
+
+
 def render_resume_improvement_report(report: dict) -> None:
     render_section_title(
         "Resume Improvement Report",
@@ -572,7 +703,11 @@ def render_prediction_explanation_section(prediction_explanation: dict) -> None:
     render_alert_banner(prediction_explanation.get("disclaimer", ""), "info")
 
 
-def render_batch_ranking_section(job_description: str, privacy_mode: bool = False) -> None:
+def render_batch_ranking_section(
+    job_description: str,
+    privacy_mode: bool = False,
+    enable_database_logging: bool = False,
+) -> None:
     render_section_title(
         "Batch Resume Ranking",
         "Upload multiple resumes and compare them against the pasted job description using ResumeIQ fit signals.",
@@ -713,6 +848,33 @@ def render_batch_ranking_section(job_description: str, privacy_mode: bool = Fals
                         st.write("No priority actions available.")
 
         render_recruiter_workflow_section(ranked_rows, privacy_mode=privacy_mode)
+
+        if enable_database_logging:
+            review_records = build_review_records(ranked_rows, st.session_state.get("recruiter_review_state", {}))
+            records_to_save = anonymize_review_records(review_records) if privacy_mode else review_records
+            batch_save_key = hashlib.sha256(
+                (
+                    f"{_safe_job_description_hash(job_description)}|"
+                    f"{summary.get('total_resumes')}|"
+                    f"{summary.get('average_fit_score')}|"
+                    f"{summary.get('recommended_for_review')}|"
+                    f"{privacy_mode}|"
+                    f"{pd.DataFrame(records_to_save).to_csv(index=False) if records_to_save else ''}"
+                ).encode("utf-8")
+            ).hexdigest()
+            if st.button("Save Batch Summary"):
+                if st.session_state.get("last_saved_batch_key") == batch_save_key:
+                    st.info("This batch summary was already saved.")
+                elif save_streamlit_batch_summary(
+                    ranked_rows=ranked_rows,
+                    review_records=records_to_save,
+                    job_description=job_description,
+                    privacy_mode=privacy_mode,
+                ):
+                    st.session_state["last_saved_batch_key"] = batch_save_key
+                    st.success("Batch summary and recruiter review records saved.")
+                else:
+                    st.warning("Database logging is unavailable. Analysis continued normally.")
     else:
         render_recruiter_workflow_section([], privacy_mode=privacy_mode)
 
@@ -1574,6 +1736,18 @@ with st.sidebar:
             st.json(backend_ready.get("checks", {}))
 
     st.markdown("---")
+    st.markdown("### Database Logging")
+    enable_database_logging = st.toggle(
+        "Save analysis summary to local database",
+        value=False,
+        help="Saves scores, labels, and review metadata only. Full resume text and full job descriptions are not stored.",
+    )
+    if enable_database_logging:
+        render_recent_analysis_history()
+    else:
+        st.caption("Database logging is optional. Local analysis works without saved history.")
+
+    st.markdown("---")
     input_status_slot = st.container()
 
     st.markdown("---")
@@ -1745,7 +1919,11 @@ if uploaded_file is None:
         "Upload a PDF, DOCX, or TXT resume to unlock prediction, ATS compatibility, skill matching, writing-quality checks, and recruiter-style insights.",
     )
     if app_ready:
-        render_batch_ranking_section(job_description, privacy_mode=privacy_mode)
+        render_batch_ranking_section(
+            job_description,
+            privacy_mode=privacy_mode,
+            enable_database_logging=enable_database_logging,
+        )
 elif not app_ready:
     st.error("The app cannot analyze resumes until the required model and data files are available.")
 elif not is_supported_file(uploaded_file):
@@ -1852,6 +2030,35 @@ else:
             role_profile=role_profile,
         )
 
+        analysis_save_data = {
+            "source": "streamlit_local",
+            "resume_filename": getattr(uploaded_file, "name", None),
+            "predicted_role": predicted_role,
+            "model_confidence": _normalize_db_score(prediction.get("confidence")),
+            "ats_score": _normalize_db_score(ats_result.get("ats_score")),
+            "jd_match_score": _normalize_db_score(match_score),
+            "semantic_score": _normalize_db_score(semantic_result.get("semantic_score"))
+            if semantic_result.get("available")
+            else None,
+            "overall_fit_score": _normalize_db_score(candidate_fit_result.get("overall_fit_score")),
+            "fit_label": candidate_fit_result.get("fit_label"),
+            "recommendation": candidate_fit_result.get("recommendation"),
+            "privacy_mode": privacy_mode,
+            "notes": "Saved from Streamlit local analysis",
+        }
+        analysis_save_key = hashlib.sha256(
+            (
+                f"{analysis_save_data.get('resume_filename')}|"
+                f"{analysis_save_data.get('predicted_role')}|"
+                f"{analysis_save_data.get('model_confidence')}|"
+                f"{analysis_save_data.get('ats_score')}|"
+                f"{analysis_save_data.get('jd_match_score')}|"
+                f"{analysis_save_data.get('semantic_score')}|"
+                f"{analysis_save_data.get('overall_fit_score')}|"
+                f"{analysis_save_data.get('privacy_mode')}"
+            ).encode("utf-8")
+        ).hexdigest()
+
         api_analysis_result = None
         if use_fastapi_backend:
             with st.spinner("Checking FastAPI backend analysis..."):
@@ -1915,6 +2122,19 @@ else:
                     "Model confidence is low; use the combined fit signals instead of relying only on the predicted role.",
                     "warning",
                 )
+            if enable_database_logging:
+                render_section_title(
+                    "Database Logging",
+                    "Save a privacy-safe summary of this analysis. Resume text and job description text are not stored.",
+                )
+                if st.button("Save Analysis Summary"):
+                    if st.session_state.get("last_saved_analysis_key") == analysis_save_key:
+                        st.info("This analysis summary was already saved.")
+                    elif save_streamlit_analysis_summary(analysis_save_data):
+                        st.session_state["last_saved_analysis_key"] = analysis_save_key
+                        st.success("Analysis summary saved to local database.")
+                    else:
+                        st.warning("Database logging is unavailable. Analysis continued normally.")
             render_backend_analysis_snapshot(api_analysis_result)
 
         with quality_tab:
@@ -1962,7 +2182,11 @@ else:
                 "Recruiter Workspace",
                 "Batch ranking, priority actions, manual notes, shortlist status, and CSV exports.",
             )
-            render_batch_ranking_section(job_description, privacy_mode=privacy_mode)
+            render_batch_ranking_section(
+                job_description,
+                privacy_mode=privacy_mode,
+                enable_database_logging=enable_database_logging,
+            )
 
         with model_tab:
             render_model_transparency_section(
