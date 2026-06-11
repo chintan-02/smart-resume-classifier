@@ -1890,9 +1890,16 @@ with st.sidebar:
 
     if backend_health:
         if backend_available:
-            st.success("Backend API is available. Streamlit can use API analysis snapshot.")
+            if use_fastapi_backend:
+                st.success("Backend API is available. Streamlit can use API analysis snapshot.")
+            else:
+                st.success("Backend API is reachable, but API analysis is not enabled.")
+                st.caption("Turn on 'Use FastAPI backend when available' to enable the API snapshot.")
         else:
-            st.info("Backend API is offline. Streamlit is using local analysis.")
+            if use_fastapi_backend:
+                st.info("Backend API is offline. Streamlit is using local analysis.")
+            else:
+                st.info("Backend API is offline. Local Streamlit workflow is active.")
         if isinstance(last_checked_at, datetime):
             st.caption(f"Last checked: {last_checked_at.strftime('%H:%M:%S')}")
     elif use_fastapi_backend:
