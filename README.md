@@ -201,6 +201,7 @@ ResumeIQ uses GitHub Actions to automatically run:
 * pytest test suite
 * FastAPI import smoke test
 * Docker Compose config validation
+* Docker image build checks for the FastAPI backend and Streamlit UI
 
 Workflow file:
 
@@ -222,6 +223,8 @@ from backend.main import app
 print(app.title)
 PY
 docker compose config
+docker compose build api
+docker compose build streamlit
 ```
 
 ---

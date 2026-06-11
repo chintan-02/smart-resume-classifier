@@ -9,6 +9,7 @@ __pycache__
 .pytest_cache
 .mypy_cache
 .DS_Store
+docker_api_build.log
 resumeiq.db
 *.db
 *.sqlite
