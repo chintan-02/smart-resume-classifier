@@ -1,6 +1,6 @@
 import requests
 
-from src.api_client import analyze_resume_via_api, check_api_health, get_api_base_url
+from src.api_client import analyze_resume_via_api, ask_copilot_via_api, check_api_health, get_api_base_url
 
 
 def test_get_api_base_url_default(monkeypatch):
@@ -41,3 +41,51 @@ def test_analyze_resume_via_api_handles_failed_request(monkeypatch):
 
     assert result.get("success") is False
     assert result.get("data") is None
+
+
+def test_ask_copilot_via_api_handles_successful_response(monkeypatch):
+    class FakeResponse:
+        status_code = 200
+
+        def json(self):
+            return {
+                "status": "success",
+                "answer": "Evidence found.",
+                "question_type": "skills",
+                "evidence": [],
+                "limitations": [],
+                "disclaimer": "This copilot retrieves evidence from the uploaded resume/JD.",
+                "privacy_mode": False,
+                "source": "fastapi_local_retrieval",
+            }
+
+    def fake_post(*args, **kwargs):
+        return FakeResponse()
+
+    monkeypatch.setattr("src.api_client.requests.post", fake_post)
+
+    result = ask_copilot_via_api(
+        query="Which skills match?",
+        resume_text="Python developer with SQL and FastAPI project experience.",
+        job_description="Need Python and SQL.",
+    )
+
+    assert result["success"] is True
+    assert result["source"] == "api"
+    assert result["data"]["source"] == "fastapi_local_retrieval"
+
+
+def test_ask_copilot_via_api_handles_failed_request(monkeypatch):
+    def fake_post(*args, **kwargs):
+        raise requests.ConnectionError("offline")
+
+    monkeypatch.setattr("src.api_client.requests.post", fake_post)
+
+    result = ask_copilot_via_api(
+        query="Which skills match?",
+        resume_text="Python developer with SQL and FastAPI project experience.",
+    )
+
+    assert result["success"] is False
+    assert result["data"] is None
+    assert "Local copilot can be used" in result["message"]

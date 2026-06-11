@@ -88,6 +88,7 @@ def test_ready_endpoint(client, temp_ready_database):
     assert checks.get("database") in {"available", "not_initialized", "unavailable"}
     assert checks.get("logging") == "enabled"
     assert checks.get("monitoring") == "local_foundation"
+    assert checks.get("rag_copilot") == "available"
 
 
 def test_analyze_resume_success(monkeypatch, client, disable_backend_db_writes):
