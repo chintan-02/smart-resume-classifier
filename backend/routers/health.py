@@ -26,6 +26,8 @@ def readiness_check() -> dict:
         "api": "ok",
         "local_analysis_modules": "available",
         "database": "unavailable",
+        "logging": "enabled",
+        "monitoring": "local_foundation",
     }
 
     try:

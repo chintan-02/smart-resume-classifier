@@ -73,6 +73,8 @@ def test_health_endpoint(client):
     assert response.status_code == 200
     assert response.json().get("status") == "ok"
     assert response.json().get("service") == "ResumeIQ API"
+    assert response.headers.get("x-request-id")
+    assert response.headers.get("x-process-time-ms") is not None
 
 
 def test_ready_endpoint(client, temp_ready_database):
@@ -84,6 +86,8 @@ def test_ready_endpoint(client, temp_ready_database):
     assert "checks" in data
     assert "api" in checks
     assert checks.get("database") in {"available", "not_initialized", "unavailable"}
+    assert checks.get("logging") == "enabled"
+    assert checks.get("monitoring") == "local_foundation"
 
 
 def test_analyze_resume_success(monkeypatch, client, disable_backend_db_writes):

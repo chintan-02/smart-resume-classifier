@@ -42,6 +42,7 @@ from src.fairness_dashboard import (
     get_synthetic_fairness_data,
 )
 from src.jd_matcher import analyze_job_description_match, get_match_feedback
+from src.monitoring import build_monitoring_summary, get_monitoring_checklist
 from src.prediction_service import get_top_predictions as get_model_top_predictions
 from src.prediction_service import load_model_artifacts, predict_resume_role
 from src.prediction_explainer import build_prediction_explanation, get_prediction_explanation_cards
@@ -1536,6 +1537,62 @@ def render_privacy_responsible_ai_section(privacy_mode: bool) -> None:
     with st.expander("Fairness dashboard limitations", expanded=False):
         for limitation in get_fairness_limitations():
             st.markdown(f"- {limitation}")
+
+    render_logging_monitoring_section()
+
+
+def render_logging_monitoring_section() -> None:
+    render_section_title(
+        "Logging & Monitoring",
+        "Local observability foundations for safe backend and workflow diagnostics.",
+    )
+    render_alert_banner(
+        "ResumeIQ logs operational metadata only. Full resume text, full job descriptions, and raw PII are not intentionally logged.",
+        "info",
+    )
+    render_workflow_status(
+        [
+            {
+                "label": "Local structured logging",
+                "is_active": True,
+                "active_text": "Active",
+                "inactive_text": "Inactive",
+            },
+            {
+                "label": "Request IDs",
+                "is_active": True,
+                "active_text": "Active",
+                "inactive_text": "Inactive",
+            },
+            {
+                "label": "API latency headers",
+                "is_active": True,
+                "active_text": "Active",
+                "inactive_text": "Inactive",
+            },
+            {
+                "label": "PII-safe logging",
+                "is_active": True,
+                "active_text": "Active",
+                "inactive_text": "Inactive",
+            },
+            {
+                "label": "External monitoring",
+                "is_active": False,
+                "active_text": "Active",
+                "inactive_text": "Planned future",
+            },
+        ]
+    )
+    checklist_df = pd.DataFrame(get_monitoring_checklist())
+    st.dataframe(checklist_df, width="stretch", hide_index=True)
+    summary = build_monitoring_summary(
+        api_status="available when FastAPI is running",
+        db_status="local SQLite foundation",
+        test_status="pytest foundation",
+    )
+    for note in summary.get("notes", []):
+        st.markdown(f"- {note}")
 
 
 def render_job_application_assistant_placeholder() -> None:

@@ -192,6 +192,20 @@ Docker uses a local SQLite database stored in a Docker volume. No external AI AP
 
 ---
 
+## Logging & Monitoring
+
+ResumeIQ includes a local logging and monitoring foundation:
+
+* FastAPI request IDs
+* request timing headers
+* safe structured logs
+* database/API request metadata logging
+* PII-safe logging rules
+
+External monitoring tools such as Application Insights, Sentry, Prometheus, or Grafana are planned future integrations, not currently connected.
+
+---
+
 ## CI/CD
 
 ResumeIQ uses GitHub Actions to automatically run:

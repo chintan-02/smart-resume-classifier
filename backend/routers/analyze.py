@@ -1,10 +1,10 @@
-import logging
 from time import perf_counter
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from backend.schemas.resume_schema import ResumeAnalysisRequest, ResumeAnalysisResponse
 from backend.services.analysis_service import analyze_resume_text
+from src.monitoring import format_latency_ms, get_logger, log_event
 
 try:
     from database.db import get_db_session
@@ -16,7 +16,7 @@ except Exception:
 
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def _save_analysis_run(result: dict, privacy_mode: bool) -> None:
@@ -43,7 +43,7 @@ def _save_analysis_run(result: dict, privacy_mode: bool) -> None:
         logger.warning("Database logging failed for FastAPI analysis summary.")
 
 
-def _save_api_request_log(status_code: int, success: bool, message: str, latency_ms: float) -> None:
+def _save_api_request_log(status_code: int, success: bool, message: str, latency_ms: float | None) -> None:
     if get_db_session is None or create_api_request_log is None:
         logger.warning("Database logging is unavailable for API request logs.")
         return
@@ -64,7 +64,7 @@ def _save_api_request_log(status_code: int, success: bool, message: str, latency
         logger.warning("Database logging failed for FastAPI request metadata.")
 
 
-def _save_successful_analysis(result: dict, privacy_mode: bool, latency_ms: float) -> None:
+def _save_successful_analysis(result: dict, privacy_mode: bool, latency_ms: float | None) -> None:
     _save_analysis_run(result, privacy_mode)
     _save_api_request_log(
         status_code=200,
@@ -74,7 +74,7 @@ def _save_successful_analysis(result: dict, privacy_mode: bool, latency_ms: floa
     )
 
 
-def _save_failed_api_request(latency_ms: float) -> None:
+def _save_failed_api_request(latency_ms: float | None) -> None:
     _save_api_request_log(
         status_code=500,
         success=False,
@@ -84,21 +84,52 @@ def _save_failed_api_request(latency_ms: float) -> None:
 
 
 @router.post("/analyze-resume", response_model=ResumeAnalysisResponse)
-def analyze_resume(request: ResumeAnalysisRequest) -> ResumeAnalysisResponse:
+def analyze_resume(request: ResumeAnalysisRequest, http_request: Request) -> ResumeAnalysisResponse:
     start_time = perf_counter()
+    request_id = getattr(http_request.state, "request_id", None)
     try:
         result = analyze_resume_text(
             resume_text=request.resume_text,
             job_description=request.job_description,
             privacy_mode=request.privacy_mode,
         )
-        latency_ms = (perf_counter() - start_time) * 1000
+        latency_ms = format_latency_ms(perf_counter() - start_time)
         _save_successful_analysis(result, request.privacy_mode, latency_ms)
+        log_event(
+            logger,
+            "analysis_request_completed",
+            "Resume analysis request completed.",
+            {
+                "request_id": request_id,
+                "endpoint": "/analyze-resume",
+                "status_code": 200,
+                "latency_ms": latency_ms,
+                "predicted_role": result.get("predicted_role"),
+                "model_confidence": result.get("model_confidence"),
+                "ats_score": result.get("ats_score"),
+                "jd_match_score": result.get("jd_match_score"),
+                "privacy_mode": request.privacy_mode,
+                "success": True,
+            },
+        )
         return ResumeAnalysisResponse(**result)
     except Exception as exc:
-        latency_ms = (perf_counter() - start_time) * 1000
+        latency_ms = format_latency_ms(perf_counter() - start_time)
         _save_failed_api_request(latency_ms)
-        logger.warning("Resume analysis failed safely in /analyze-resume.")
+        log_event(
+            logger,
+            "analysis_request_failed",
+            "Resume analysis failed safely in /analyze-resume.",
+            {
+                "request_id": request_id,
+                "endpoint": "/analyze-resume",
+                "status_code": 500,
+                "latency_ms": latency_ms,
+                "privacy_mode": request.privacy_mode,
+                "success": False,
+            },
+            level="warning",
+        )
         raise HTTPException(
             status_code=500,
             detail="Resume analysis failed safely. Check backend logs for details.",
