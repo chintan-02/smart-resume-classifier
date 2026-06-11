@@ -568,11 +568,10 @@ def render_candidate_fit_section(candidate_fit_result: dict, role_profile_summar
 def render_recruiter_workflow_section(ranked_rows: list[dict], privacy_mode: bool = False) -> None:
     render_section_title(
         "Recruiter Notes & Shortlist Workflow",
-        "Add manual review statuses and notes for each ranked resume.",
     )
     st.write(
-        "Add manual review statuses and notes for each ranked resume. These notes are stored locally "
-        "in this session and can be exported as CSV."
+        "Add manual review statuses and notes for each ranked resume. These notes are session-local "
+        "and can be exported or saved when database logging is enabled."
     )
 
     if "recruiter_review_state" not in st.session_state:
