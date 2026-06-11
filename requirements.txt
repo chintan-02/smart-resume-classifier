@@ -95,6 +95,7 @@ pycparser==3.0
 pydantic==2.13.4
 pydantic_core==2.46.4
 pydeck==0.9.2
+pytest
 Pygments==2.20.0
 pypdf==6.10.2
 python-dateutil==2.9.0.post0
