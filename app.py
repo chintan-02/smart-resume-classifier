@@ -1,11 +1,16 @@
 import hashlib
+import json
 import re
 from collections import Counter
+from datetime import datetime
 from io import BytesIO
+from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
+from model_registry.model_card import build_baseline_model_card, get_model_card_sections
+from model_registry.registry import DEFAULT_REGISTRY_PATH, get_latest_model_record
 from src.api_client import (
     analyze_resume_via_api,
     check_api_health,
@@ -105,6 +110,8 @@ st.set_page_config(
 
 apply_global_styles()
 
+BACKEND_STATUS_TTL_SECONDS = 15
+
 
 @st.cache_resource
 def load_model():
@@ -120,15 +127,45 @@ def get_skills():
 @st.cache_data
 def get_metrics():
     if METRICS_PATH.exists():
-        import json
-
         return json.loads(METRICS_PATH.read_text(encoding="utf-8"))
     return {}
 
 
 @st.cache_data
+def get_model_card_payload():
+    model_card_path = Path("artifacts/model_registry/model_card_baseline.json")
+    if model_card_path.exists():
+        try:
+            return json.loads(model_card_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            return {}
+    return {}
+
+
+@st.cache_data
+def get_latest_registry_record():
+    return get_latest_model_record(DEFAULT_REGISTRY_PATH)
+
+
+@st.cache_data
 def load_sample_jd() -> str:
     return SAMPLE_JD_PATH.read_text(encoding="utf-8") if SAMPLE_JD_PATH.exists() else ""
+
+
+def refresh_backend_status(api_base_url: str) -> tuple[dict, dict]:
+    backend_health = check_api_health(api_base_url)
+    backend_ready = check_api_ready(api_base_url)
+    st.session_state["backend_health"] = backend_health
+    st.session_state["backend_ready"] = backend_ready
+    st.session_state["backend_last_checked_at"] = datetime.now()
+    return backend_health, backend_ready
+
+
+def backend_status_is_stale() -> bool:
+    last_checked_at = st.session_state.get("backend_last_checked_at")
+    if not isinstance(last_checked_at, datetime):
+        return True
+    return (datetime.now() - last_checked_at).total_seconds() > BACKEND_STATUS_TTL_SECONDS
 
 
 def get_top_predictions(text: str, top_n: int = 5) -> pd.DataFrame:
@@ -1394,13 +1431,74 @@ def render_resume_preview_section(parser_result, resume_text, job_description, t
         st.text_area("Job description text", job_description[:5000], height=220, label_visibility="collapsed")
 
 
+def format_registry_metric(value) -> str:
+    if value is None or value == "":
+        return "N/A"
+    try:
+        metric = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    if 0 <= metric <= 1:
+        return f"{metric:.2%}"
+    return f"{metric:.3f}"
+
+
+def render_model_registry_section(metrics) -> None:
+    st.markdown("##### Model Registry & Model Card")
+
+    if not Path(DEFAULT_REGISTRY_PATH).exists():
+        st.info(
+            "Model registry has not been initialized yet. Run python scripts/register_baseline_model.py to create local metadata."
+        )
+        return
+
+    model_record = get_latest_registry_record()
+    if not model_record:
+        st.info(
+            "Model registry has not been initialized yet. Run python scripts/register_baseline_model.py to create local metadata."
+        )
+        return
+
+    model_card = get_model_card_payload()
+    if not model_card:
+        model_card = build_baseline_model_card(
+            {
+                "metrics": model_record.get("metrics", metrics or {}),
+                "evaluation_risks": model_record.get("evaluation_risks", []),
+            }
+        )
+
+    model_metrics = model_record.get("metrics", {}) if isinstance(model_record.get("metrics"), dict) else {}
+    cols = st.columns(5)
+    cols[0].metric("Model", model_record.get("model_name", "Baseline classifier"))
+    cols[1].metric("Version", model_record.get("model_version", "baseline-v1"))
+    cols[2].metric("Type", model_record.get("model_type", "TF-IDF + Logistic Regression"))
+    cols[3].metric("Status", model_record.get("status", "needs_review"))
+    cols[4].metric("Accuracy", format_registry_metric(model_metrics.get("accuracy")))
+
+    risk_notes = model_record.get("evaluation_risks", [])
+    if risk_notes:
+        st.markdown("##### Evaluation risk notes")
+        for risk_note in risk_notes:
+            render_alert_banner(risk_note, "warning")
+
+    with st.expander("View baseline model card summary", expanded=False):
+        for section in get_model_card_sections(model_card):
+            st.markdown(f"**{section.get('title', 'Section')}**")
+            content = section.get("content")
+            if isinstance(content, (dict, list)):
+                st.json(content)
+            else:
+                st.write(content)
+
+
 def render_model_transparency_section(prediction_explanation, top_predictions, metrics, clean_classes, jd_skills, matched_count, missing_count, extra_count) -> None:
     render_section_title(
         "Model Transparency",
         "Baseline classifier metadata, explainability, probabilities, and evaluation warnings.",
     )
     render_alert_banner(
-        "The current baseline model is useful for demonstration, but the 100% validation accuracy and low real-resume confidence should be investigated later with stronger evaluation, calibration, and model comparison.",
+        "The baseline model reports very high validation accuracy. This should be reviewed for data leakage, small validation split, class imbalance, or overfitting before production use.",
         "info",
     )
 
@@ -1425,6 +1523,8 @@ def render_model_transparency_section(prediction_explanation, top_predictions, m
         st.json({"accuracy": metrics.get("accuracy"), "available_roles": clean_classes})
     else:
         st.info("No metrics metadata file found.")
+
+    render_model_registry_section(metrics)
 
     if jd_skills:
         st.markdown("##### Match analytics snapshot")
@@ -1755,8 +1855,6 @@ metrics = get_metrics()
 
 ensure_batch_file_store()
 
-render_page_header()
-
 with st.sidebar:
     st.markdown("### Project Controls")
     use_sample_jd = st.toggle("Use sample job description", value=False)
@@ -1772,21 +1870,41 @@ with st.sidebar:
     api_base_url = get_api_base_url()
     use_fastapi_backend = st.toggle("Use FastAPI backend when available", value=False)
     st.caption(f"Backend URL: {api_base_url}")
+    st.caption(
+        "Full dashboard analysis currently runs locally. FastAPI is used for backend health checks and API analysis snapshot."
+    )
     check_backend_clicked = st.button("Check Backend Status")
-    backend_health = None
-    backend_ready = None
-    if check_backend_clicked or use_fastapi_backend:
-        backend_health = check_api_health(api_base_url)
-        if backend_health.get("available"):
-            backend_ready = check_api_ready(api_base_url)
-            st.success("Backend API is available. Streamlit can use API analysis.")
+    backend_health = st.session_state.get("backend_health")
+    backend_ready = st.session_state.get("backend_ready")
+
+    if check_backend_clicked:
+        backend_health, backend_ready = refresh_backend_status(api_base_url)
+    elif use_fastapi_backend and backend_status_is_stale():
+        backend_health, backend_ready = refresh_backend_status(api_base_url)
+
+    backend_available = bool(backend_health and backend_health.get("available"))
+    last_checked_at = st.session_state.get("backend_last_checked_at")
+
+    if not use_fastapi_backend:
+        st.caption("Backend checks are off. Local Streamlit workflow is active.")
+
+    if backend_health:
+        if backend_available:
+            st.success("Backend API is available. Streamlit can use API analysis snapshot.")
         else:
             st.info("Backend API is offline. Streamlit is using local analysis.")
-    else:
-        st.caption("Backend check is optional. Local Streamlit analysis remains available.")
+        if isinstance(last_checked_at, datetime):
+            st.caption(f"Last checked: {last_checked_at.strftime('%H:%M:%S')}")
+    elif use_fastapi_backend:
+        st.info("Backend API is offline. Streamlit is using local analysis.")
 
     analysis_mode_slot = st.empty()
-    analysis_mode_slot.caption("Analysis mode: Local")
+    if use_fastapi_backend and backend_available:
+        analysis_mode_slot.caption("Primary analysis: Local workflow + FastAPI snapshot enabled")
+    elif use_fastapi_backend:
+        analysis_mode_slot.caption("Primary analysis: Local workflow fallback")
+    else:
+        analysis_mode_slot.caption("Primary analysis: Local Streamlit workflow")
     if backend_ready and backend_ready.get("checks"):
         with st.expander("Backend readiness checks", expanded=False):
             st.json(backend_ready.get("checks", {}))
@@ -1832,6 +1950,13 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### Local Run")
     st.code("streamlit run app.py --server.fileWatcherType none", language="bash")
+
+primary_analysis_badge = (
+    "Local workflow + API snapshot"
+    if use_fastapi_backend and backend_health and backend_health.get("available")
+    else "Local analysis currently active"
+)
+render_page_header(primary_analysis_badge=primary_analysis_badge)
 
 top_left, top_right = st.columns([1.18, 0.82], gap="large")
 
@@ -2125,11 +2250,11 @@ else:
                     base_url=api_base_url,
                 )
             if api_analysis_result.get("success"):
-                analysis_mode_slot.caption("Analysis mode: FastAPI backend")
+                analysis_mode_slot.caption("Primary analysis: Local workflow + FastAPI snapshot enabled")
             else:
-                analysis_mode_slot.caption("Analysis mode: Local")
+                analysis_mode_slot.caption("Primary analysis: Local workflow fallback")
         else:
-            analysis_mode_slot.caption("Analysis mode: Local")
+            analysis_mode_slot.caption("Primary analysis: Local Streamlit workflow")
 
         (
             overview_tab,
@@ -2191,7 +2316,8 @@ else:
                         st.success("Analysis summary saved to local database.")
                     else:
                         st.warning("Database logging is unavailable. Analysis continued normally.")
-            render_backend_analysis_snapshot(api_analysis_result)
+            if use_fastapi_backend and resume_text.strip():
+                render_backend_analysis_snapshot(api_analysis_result)
 
         with quality_tab:
             render_navigation_section_title(
