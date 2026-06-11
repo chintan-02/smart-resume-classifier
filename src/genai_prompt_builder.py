@@ -138,15 +138,22 @@ def build_resume_bullet_rewrite_prompt(
     evidence: list[str] | None = None,
     consent_given: bool = False,
     external_enabled: bool = False,
+    privacy_mode: bool = True,
+    candidate_name: str | None = None,
 ) -> dict:
-    context = build_context_block(resume_evidence=evidence, user_goal=target_role, privacy_mode=True)
+    context = build_context_block(
+        resume_evidence=evidence,
+        user_goal=target_role,
+        privacy_mode=privacy_mode,
+        candidate_name=candidate_name,
+    )
     user_prompt = (
         "Prepare a rewritten resume bullet preview.\n"
         "Preserve truthfulness and keep the original meaning.\n"
         "Do not add metrics unless they are provided in the evidence.\n"
         "Improve clarity using an action-context-result structure.\n"
         f"Target role: {target_role or 'Not provided'}\n"
-        f"Original bullet: {redact_for_external_genai(original_bullet)}\n"
+        f"Original bullet: {redact_for_external_genai(original_bullet, candidate_name=candidate_name)}\n"
         f"{_format_evidence_section('Resume evidence', context['resume_evidence'])}"
     )
     return _base_prompt_object(
@@ -164,8 +171,10 @@ def build_cover_letter_prompt(
     role_title=None,
     consent_given=False,
     external_enabled=False,
+    privacy_mode=True,
+    candidate_name=None,
 ) -> dict:
-    context = build_context_block(resume_evidence, job_description_evidence, privacy_mode=True)
+    context = build_context_block(resume_evidence, job_description_evidence, privacy_mode=privacy_mode, candidate_name=candidate_name)
     user_prompt = (
         "Draft a tailored cover letter preview using only provided evidence.\n"
         "Do not invent company research or claim experience not present in the evidence.\n"
@@ -185,8 +194,10 @@ def build_recruiter_email_prompt(
     role_title=None,
     consent_given=False,
     external_enabled=False,
+    privacy_mode=True,
+    candidate_name=None,
 ) -> dict:
-    context = build_context_block(resume_evidence, job_description_evidence, privacy_mode=True)
+    context = build_context_block(resume_evidence, job_description_evidence, privacy_mode=privacy_mode, candidate_name=candidate_name)
     user_prompt = (
         "Draft a concise, professional recruiter outreach email preview.\n"
         "Use evidence only, with no exaggeration and no fabricated achievements or fake claims.\n"
@@ -205,8 +216,10 @@ def build_linkedin_message_prompt(
     role_title=None,
     consent_given=False,
     external_enabled=False,
+    privacy_mode=True,
+    candidate_name=None,
 ) -> dict:
-    context = build_context_block(resume_evidence, job_description_evidence, privacy_mode=True)
+    context = build_context_block(resume_evidence, job_description_evidence, privacy_mode=privacy_mode, candidate_name=candidate_name)
     user_prompt = (
         "Draft a short, conversational, professional LinkedIn message preview.\n"
         "Avoid a desperate tone and do not make fake claims.\n"
@@ -224,8 +237,10 @@ def build_interview_questions_prompt(
     target_role=None,
     consent_given=False,
     external_enabled=False,
+    privacy_mode=True,
+    candidate_name=None,
 ) -> dict:
-    context = build_context_block(resume_evidence, job_description_evidence, privacy_mode=True)
+    context = build_context_block(resume_evidence, job_description_evidence, privacy_mode=privacy_mode, candidate_name=candidate_name)
     user_prompt = (
         "Prepare interview practice questions based on the provided resume and job-description evidence.\n"
         "Include technical and behavioral categories in the planned output.\n"
@@ -269,8 +284,10 @@ def build_candidate_summary_prompt(
     job_description_evidence=None,
     consent_given=False,
     external_enabled=False,
+    privacy_mode=True,
+    candidate_name=None,
 ) -> dict:
-    context = build_context_block(resume_evidence, job_description_evidence, privacy_mode=True)
+    context = build_context_block(resume_evidence, job_description_evidence, privacy_mode=privacy_mode, candidate_name=candidate_name)
     user_prompt = (
         "Prepare a recruiter-review candidate summary using only provided evidence.\n"
         "Use cautious wording and avoid hiring decision language.\n"
@@ -285,8 +302,10 @@ def build_resume_gap_explanation_prompt(
     job_description_evidence,
     consent_given=False,
     external_enabled=False,
+    privacy_mode=True,
+    candidate_name=None,
 ) -> dict:
-    context = build_context_block(resume_evidence, job_description_evidence, privacy_mode=True)
+    context = build_context_block(resume_evidence, job_description_evidence, privacy_mode=privacy_mode, candidate_name=candidate_name)
     user_prompt = (
         "Explain possible resume/job-description gaps using only provided evidence.\n"
         "If a requirement is not evidenced, say it may need manual verification.\n"

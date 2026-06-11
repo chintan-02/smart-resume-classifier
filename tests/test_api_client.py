@@ -1,6 +1,12 @@
 import requests
 
-from src.api_client import analyze_resume_via_api, ask_copilot_via_api, check_api_health, get_api_base_url
+from src.api_client import (
+    analyze_resume_via_api,
+    ask_copilot_via_api,
+    build_genai_prompt_preview_via_api,
+    check_api_health,
+    get_api_base_url,
+)
 
 
 def test_get_api_base_url_default(monkeypatch):
@@ -89,3 +95,50 @@ def test_ask_copilot_via_api_handles_failed_request(monkeypatch):
     assert result["success"] is False
     assert result["data"] is None
     assert "Local copilot can be used" in result["message"]
+
+
+def test_build_genai_prompt_preview_via_api_handles_successful_response(monkeypatch):
+    class FakeResponse:
+        status_code = 200
+
+        def json(self):
+            return {
+                "status": "success",
+                "task_type": "resume_bullet_rewrite",
+                "prompt_preview": {"allowed_for_external_use": False},
+                "external_generation_enabled": False,
+                "allowed_for_external_use": False,
+                "blocked_reason": "External GenAI providers are disabled.",
+                "disclaimer": "This endpoint builds a prompt preview only.",
+                "source": "fastapi_prompt_preview",
+            }
+
+    def fake_post(*args, **kwargs):
+        return FakeResponse()
+
+    monkeypatch.setattr("src.api_client.requests.post", fake_post)
+
+    result = build_genai_prompt_preview_via_api(
+        task_type="resume_bullet_rewrite",
+        original_bullet="Built a Streamlit app.",
+        resume_evidence=["Python project evidence."],
+    )
+
+    assert result["success"] is True
+    assert result["data"]["source"] == "fastapi_prompt_preview"
+
+
+def test_build_genai_prompt_preview_via_api_handles_failed_request(monkeypatch):
+    def fake_post(*args, **kwargs):
+        raise requests.ConnectionError("offline")
+
+    monkeypatch.setattr("src.api_client.requests.post", fake_post)
+
+    result = build_genai_prompt_preview_via_api(
+        task_type="resume_bullet_rewrite",
+        original_bullet="Built a Streamlit app.",
+    )
+
+    assert result["success"] is False
+    assert result["data"] is None
+    assert "Local prompt builder can be used" in result["message"]
