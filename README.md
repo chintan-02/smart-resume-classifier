@@ -331,6 +331,22 @@ API keys must never be committed. `.env` is ignored by Git, and `.env.example` d
 
 ---
 
+## Safe GenAI Prompt Builder
+
+ResumeIQ includes a safe prompt-builder foundation for future GenAI workflows. It builds prompt previews only. It does not call external GenAI providers, does not generate output, and does not send resume or job-description content outside the app.
+
+Prompt previews include:
+
+* system safety instructions
+* user prompt text
+* consent/external-use status
+* PII redaction support
+* truthfulness and human-review reminders
+
+External use is blocked by default. Future external generation will require explicit consent, provider configuration through environment variables, PII masking, safe fallback behavior, and clear generated-content disclaimers.
+
+---
+
 ## Logging & Monitoring
 
 ResumeIQ includes a local logging and monitoring foundation:

@@ -55,6 +55,7 @@ from src.genai_planning import (
     get_genai_safety_policy,
     get_supported_future_genai_features,
 )
+from src.genai_prompt_builder import build_prompt_preview, get_prompt_builder_safety_notes, get_prompt_task_types
 from src.jd_matcher import analyze_job_description_match, get_match_feedback
 from src.monitoring import build_monitoring_summary, get_monitoring_checklist
 from src.prediction_service import get_top_predictions as get_model_top_predictions
@@ -1932,6 +1933,140 @@ def render_job_application_assistant_placeholder() -> None:
         for template_name, template_text in get_future_prompt_templates().items():
             st.markdown(f"**{template_name}**")
             st.code(template_text, language="text")
+
+    with st.expander("Safe Prompt Builder Preview", expanded=False):
+        render_alert_banner(
+            "This is a prompt preview only. ResumeIQ is not calling an external GenAI provider.",
+            "warning",
+        )
+        task_options = {task["task_name"]: task["task_key"] for task in get_prompt_task_types()}
+        selected_task_name = st.selectbox(
+            "Prompt task type",
+            options=list(task_options.keys()),
+            key="genai_prompt_preview_task",
+        )
+        task_type = task_options[selected_task_name]
+        consent_given = st.checkbox(
+            "Future external-use consent preview",
+            value=False,
+            key="genai_prompt_preview_consent",
+            help="Planning control only. No external provider is called.",
+        )
+        st.caption(f"Privacy mode for preview: {'On' if privacy_mode else 'Off'}")
+
+        resume_evidence_text = st.text_area(
+            "Resume evidence snippets",
+            value="Python, SQL, FastAPI, Docker project experience.",
+            key="genai_prompt_resume_evidence",
+            height=90,
+        )
+        jd_evidence_text = st.text_area(
+            "Job-description evidence snippets",
+            value="Role asks for Python, SQL, Docker, and FastAPI.",
+            key="genai_prompt_jd_evidence",
+            height=90,
+        )
+        resume_evidence = [line.strip() for line in resume_evidence_text.splitlines() if line.strip()]
+        job_description_evidence = [line.strip() for line in jd_evidence_text.splitlines() if line.strip()]
+
+        prompt_kwargs = {
+            "consent_given": consent_given,
+            "external_enabled": settings.external_genai_enabled,
+        }
+        if task_type == "resume_bullet_rewrite":
+            prompt_kwargs.update(
+                {
+                    "original_bullet": st.text_input(
+                        "Original bullet",
+                        value="Built a Streamlit resume analysis app using Python.",
+                        key="genai_prompt_original_bullet",
+                    ),
+                    "target_role": st.text_input("Target role", value="", key="genai_prompt_target_role"),
+                    "evidence": resume_evidence,
+                }
+            )
+        elif task_type == "cover_letter":
+            prompt_kwargs.update(
+                {
+                    "resume_evidence": resume_evidence,
+                    "job_description_evidence": job_description_evidence,
+                    "company_name": st.text_input("Company name", value="", key="genai_prompt_company"),
+                    "role_title": st.text_input("Role title", value="", key="genai_prompt_cover_role"),
+                }
+            )
+        elif task_type == "recruiter_email":
+            prompt_kwargs.update(
+                {
+                    "resume_evidence": resume_evidence,
+                    "job_description_evidence": job_description_evidence,
+                    "recruiter_name": st.text_input("Recruiter name", value="", key="genai_prompt_recruiter"),
+                    "role_title": st.text_input("Role title", value="", key="genai_prompt_email_role"),
+                }
+            )
+        elif task_type == "linkedin_message":
+            prompt_kwargs.update(
+                {
+                    "resume_evidence": resume_evidence,
+                    "job_description_evidence": job_description_evidence,
+                    "recipient_name": st.text_input("Recipient name", value="", key="genai_prompt_recipient"),
+                    "role_title": st.text_input("Role title", value="", key="genai_prompt_linkedin_role"),
+                }
+            )
+        elif task_type == "interview_questions":
+            prompt_kwargs.update(
+                {
+                    "resume_evidence": resume_evidence,
+                    "job_description_evidence": job_description_evidence,
+                    "target_role": st.text_input("Target role", value="", key="genai_prompt_interview_role"),
+                }
+            )
+        elif task_type == "rag_answer_generation":
+            rag_question = st.text_input(
+                "RAG question",
+                value="Which skills match the job description?",
+                key="genai_prompt_rag_question",
+            )
+            prompt_kwargs.update(
+                {
+                    "query": rag_question,
+                    "retrieved_evidence": [
+                        {"source": "resume", "chunk_id": "resume_1", "text": item}
+                        for item in resume_evidence
+                    ]
+                    + [
+                        {"source": "job_description", "chunk_id": "job_description_1", "text": item}
+                        for item in job_description_evidence
+                    ],
+                    "privacy_mode": privacy_mode,
+                }
+            )
+        elif task_type == "candidate_summary":
+            prompt_kwargs.update(
+                {
+                    "resume_evidence": resume_evidence,
+                    "job_description_evidence": job_description_evidence,
+                }
+            )
+        elif task_type == "resume_gap_explanation":
+            prompt_kwargs.update(
+                {
+                    "resume_evidence": resume_evidence,
+                    "job_description_evidence": job_description_evidence,
+                }
+            )
+
+        if st.button("Build Prompt Preview", key="genai_prompt_preview_button"):
+            preview = build_prompt_preview(task_type, **prompt_kwargs)
+            st.metric("Allowed for external use", "Yes" if preview.get("allowed_for_external_use") else "No")
+            if preview.get("blocked_reason"):
+                st.info(preview.get("blocked_reason"))
+            st.markdown("##### System instructions")
+            st.code(preview.get("system_instructions", ""), language="text")
+            st.markdown("##### User prompt")
+            st.code(preview.get("user_prompt", ""), language="text")
+            st.markdown("##### Safety notes")
+            for note in preview.get("safety_notes", get_prompt_builder_safety_notes()):
+                st.markdown(f"- {note}")
 
 
 def summarize_detected_sections(sections: dict) -> dict:
