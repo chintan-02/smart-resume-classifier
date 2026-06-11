@@ -20,12 +20,12 @@ def _format_score(score) -> str:
 
 def render_hero() -> None:
     badges = [
-        "ATS Compatibility",
+        "ATS Compatibility Estimate",
         "Skill Gap Analysis",
-        "AI-Like Writing Detection",
+        "Writing Quality Review",
         "Rewrite Suggestions",
         "Job Matching",
-        "Local Decision Support",
+        "Decision-Support Signals",
     ]
     badge_markup = "".join(f'<span class="hero-chip">{escape(badge)}</span>' for badge in badges)
     st.markdown(
@@ -35,8 +35,8 @@ def render_hero() -> None:
             <h1 class="resumeiq-title">ResumeIQ</h1>
             <div class="resumeiq-subtitle">AI Resume Intelligence &amp; Job Application Assistant</div>
             <div class="resumeiq-description">
-                Analyze resumes, compare them with job descriptions, review candidate fit, and prepare
-                recruiter-ready insights using local decision-support workflows.
+                Analyze resumes, compare against job descriptions, review candidate fit, and prepare
+                recruiter-ready insights using privacy-aware decision-support workflows.
             </div>
             <div class="badge-row">{badge_markup}</div>
         </div>
@@ -48,7 +48,7 @@ def render_hero() -> None:
 def render_page_header(primary_analysis_badge: str = "Local analysis currently active") -> None:
     badges = [
         primary_analysis_badge,
-        "Decision-support tool",
+        "Decision-support signal",
         "Recruiter-ready insights",
         "Privacy-safe mode available",
     ]

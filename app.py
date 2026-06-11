@@ -281,7 +281,7 @@ def render_analysis_overview(
     with c2:
         render_metric_card("Model Confidence", confidence_display, "Baseline model signal")
     with c3:
-        render_metric_card("ATS Compatibility Score", f"{ats_result.get('ats_score', 0)}%", ats_result.get("grade"))
+        render_metric_card("ATS Compatibility Estimate", f"{ats_result.get('ats_score', 0)}%", ats_result.get("grade"))
     with c4:
         render_metric_card("JD Keyword Match", f"{match_score:.2%}", "Skill overlap with target job")
 
@@ -731,7 +731,7 @@ def render_recruiter_copilot_section(
         "Ask recruiter-style questions and retrieve supporting evidence from the current resume and job description.",
     )
     render_alert_banner(
-        "This foundation version uses local retrieval only. It does not call external AI services and does not make hiring decisions.",
+        "Local retrieval only. No external AI call.",
         "info",
     )
 
@@ -824,10 +824,10 @@ def render_recruiter_copilot_section(
     if evidence:
         st.markdown("##### Evidence snippets")
         for item in evidence:
-            source_label = "Job Description" if item.get("source") == "job_description" else "Resume"
+            source_label = "Job description evidence" if item.get("source") == "job_description" else "Resume evidence"
             score = item.get("score", 0)
-            with st.expander(f"{item.get('rank')}. {source_label} evidence - similarity {score:.2f}"):
-                st.caption(f"Source: {source_label} | Chunk: {item.get('chunk_id', 'N/A')}")
+            with st.expander(f"{item.get('rank')}. {source_label} - similarity {score:.2f}"):
+                st.caption(f"{source_label} | Chunk: {item.get('chunk_id', 'N/A')} | Similarity {score:.2f}")
                 st.write(item.get("text", ""))
     else:
         render_empty_state(
@@ -891,13 +891,9 @@ def render_batch_ranking_section(
 ) -> None:
     render_section_title(
         "Batch Resume Ranking",
-        "Upload multiple resumes and compare them against the pasted job description using ResumeIQ fit signals.",
+        "Upload multiple resumes to compare candidates for recruiter review.",
     )
-    render_alert_banner(
-        "This is a decision-support ranking. Review the full resume and job context before making decisions.",
-        "info",
-    )
-    st.info("First run may take longer while the local semantic model loads.")
+    st.caption("Decision-support signal only. First run may take longer while local semantic models load.")
 
     batch_uploaded_files = st.file_uploader(
         "Upload multiple resumes",
@@ -953,8 +949,9 @@ def render_batch_ranking_section(
             for file in batch_files:
                 st.write(f"- {file.name}")
     else:
-        st.info(
-            "No batch resumes selected yet. Select multiple files at once or add resumes one at a time."
+        render_empty_state(
+            "No batch resumes uploaded",
+            "Upload multiple resumes to compare candidates for recruiter review.",
         )
 
     if not job_description.strip():
@@ -1061,16 +1058,16 @@ def render_batch_ranking_section(
 
 
 def render_ats_section(ats_result: dict, has_job_description: bool) -> None:
-    render_section_title("ATS Compatibility", "Structure, keyword coverage, skill overlap, and role alignment.")
+    render_section_title("ATS Compatibility Estimate", "Structure, keyword coverage, skill overlap, and role alignment.")
 
     if not has_job_description:
-        render_alert_banner("Paste a job description to calculate ATS compatibility.", "info")
+        render_alert_banner("Paste a job description to unlock ATS, semantic match, and job-fit insights.", "info")
         return
 
     score_col, grade_col = st.columns([0.45, 0.55], gap="medium")
     with score_col:
         render_score_summary(
-            "ATS Compatibility Score",
+            "ATS Compatibility Estimate",
             ats_result.get("ats_score"),
             helper_text="Estimated compatibility signal",
         )
@@ -1118,12 +1115,11 @@ def render_ats_section(ats_result: dict, has_job_description: bool) -> None:
 
 def render_sentence_quality_section(sentence_quality_result: dict) -> None:
     render_section_title(
-        "AI-Like / Generic Sentence Detection",
-        "Flags wording that may sound generic, vague, or AI-like. This does not prove AI usage.",
+        "Generic Writing Review",
+        "Flags wording that may sound generic, vague, or formulaic. This does not prove AI usage.",
     )
     st.write(
-        "This section highlights resume sentences that may sound generic, vague, or AI-like. "
-        "It does not prove AI usage; it helps improve recruiter readability."
+        "Use this as a writing-quality signal to improve specificity and recruiter readability."
     )
 
     flagged_sentences = sentence_quality_result.get("flagged_sentences", [])
@@ -1140,7 +1136,7 @@ def render_sentence_quality_section(sentence_quality_result: dict) -> None:
         render_metric_card(
             "High Risk",
             str(sentence_quality_result.get("high_risk_count", 0)),
-            "May sound generic or AI-like",
+            "May sound generic or vague",
         )
     with moderate_col:
         render_metric_card(
@@ -1161,7 +1157,7 @@ def render_sentence_quality_section(sentence_quality_result: dict) -> None:
 
             score_col, risk_col = st.columns(2, gap="medium")
             with score_col:
-                st.metric("Generic/AI-like score", f"{item.get('generic_score', 0)}/100")
+                st.metric("Generic wording score", f"{item.get('generic_score', 0)}/100")
             with risk_col:
                 st.metric("Risk level", item.get("risk_level", "Unknown"))
 
@@ -1233,7 +1229,7 @@ def render_structure_advisor(advice: dict) -> None:
     for fix in advice.get("priority_fixes", []):
         st.markdown(f"- {fix}")
 
-    render_alert_banner(advice.get("disclaimer", ""), "info")
+    st.caption(advice.get("disclaimer", ""))
 
 
 def render_skill_taxonomy_breakdown(taxonomy_result: dict) -> None:
@@ -1351,7 +1347,7 @@ def render_semantic_match_section(semantic_result: dict, privacy_mode: bool = Fa
     if weak_chunks:
         render_section_title("Weak JD Coverage Areas")
         for index, item in enumerate(weak_chunks, start=1):
-            with st.expander(f"{index}. Best similarity {item.get('best_similarity', 0)}", expanded=False):
+            with st.expander(f"{index}. Closest similarity {item.get('best_similarity', 0)}", expanded=False):
                 st.markdown("##### JD requirement")
                 st.write(item.get("jd_chunk", ""))
                 st.markdown("##### Recommendation")
@@ -1359,7 +1355,7 @@ def render_semantic_match_section(semantic_result: dict, privacy_mode: bool = Fa
     else:
         render_alert_banner("No weak JD chunks detected by semantic matching.", "success")
 
-    render_alert_banner(semantic_result.get("disclaimer", ""), "info")
+    st.caption(semantic_result.get("disclaimer", ""))
 
 
 def render_jd_keyword_match_section(match_score, matched_count, missing_count, gap) -> None:
@@ -1433,15 +1429,12 @@ def render_rewrite_suggestions_section(
         "Humanized Rewrite Suggestions",
         "Local template-based rewrite suggestions from flagged resume sentences.",
     )
-    render_alert_banner(
-        "These are local template-based rewrite suggestions from flagged resume sentences. They help improve clarity and structure but do not create final AI-generated bullets or invent achievements.",
-        "info",
-    )
+    st.caption("Prompt-free, local suggestions. Human review required before applying changes.")
 
     if not rewrite_suggestions:
         render_empty_state(
             "No rewrite suggestions yet",
-            "ResumeIQ generates rewrite suggestions when it finds generic, vague, or AI-like sentences.",
+            "ResumeIQ shows rewrite suggestions when it finds generic or vague resume sentences.",
         )
         return
 
@@ -1676,7 +1669,7 @@ def render_runtime_configuration_section() -> None:
 def render_model_transparency_section(prediction_explanation, top_predictions, metrics, clean_classes, jd_skills, matched_count, missing_count, extra_count) -> None:
     render_section_title(
         "Model Transparency",
-        "Baseline classifier metadata, explainability, probabilities, and evaluation warnings.",
+        "Model behavior, confidence, evidence terms, registry, and experiment tracking.",
     )
     render_alert_banner(
         "The baseline model reports very high validation accuracy. This should be reviewed for data leakage, small validation split, class imbalance, or overfitting before production use.",
@@ -1688,6 +1681,7 @@ def render_model_transparency_section(prediction_explanation, top_predictions, m
         "TF-IDF Vectorizer (1-2 grams, English stop words) -> Logistic Regression",
         language="text",
     )
+    st.caption("Role prediction is one signal. Use it with ATS, semantic match, skills, and human review.")
 
     render_prediction_explanation_section(prediction_explanation)
 
@@ -1724,10 +1718,10 @@ def render_model_transparency_section(prediction_explanation, top_predictions, m
 def render_privacy_responsible_ai_section(privacy_mode: bool) -> None:
     render_navigation_section_title(
         "Privacy & Responsible AI",
-        "Decision-support boundaries, privacy-safe display mode, and synthetic fairness monitoring concepts.",
+        "Privacy controls, human-review boundaries, and responsible AI safeguards.",
     )
     render_disclaimer_box(
-        "ResumeIQ is a decision-support tool. Final hiring or application decisions should be made by humans using complete context."
+        "ResumeIQ is a decision-support tool. Human review is required before any hiring or application action."
     )
     render_workflow_status(
         [
@@ -1886,20 +1880,19 @@ def render_job_application_assistant_placeholder(
 ) -> None:
     render_navigation_section_title(
         "Job Application Assistant",
-        "Future tools for candidate-facing documents.",
+        "Planned and prompt-preview tools for future resume, cover letter, and outreach support.",
     )
-    placeholder_text = "Planned future feature. Requires privacy safeguards and user consent before using external AI."
     cards = [
-        "Tailored Resume Guidance",
-        "Cover Letter Draft",
-        "Recruiter Cold Email",
-        "LinkedIn Cold Message",
-        "Interview Prep Questions",
+        ("Resume Bullet Rewrite — Prompt preview ready", "Prompt preview only. No external AI call."),
+        ("Cover Letter — Planned future feature", "Requires consent before future external use."),
+        ("Recruiter Email — Planned future feature", "Requires consent before future external use."),
+        ("LinkedIn Message — Planned future feature", "Requires consent before future external use."),
+        ("Interview Prep — Planned future feature", "Requires consent before future external use."),
     ]
     columns = st.columns(2, gap="medium")
-    for index, title in enumerate(cards):
+    for index, (title, description) in enumerate(cards):
         with columns[index % 2]:
-            render_feature_placeholder_card(title, placeholder_text)
+            render_feature_placeholder_card(title, description)
 
     render_section_title(
         "Future GenAI Assistant Planning",
@@ -2278,7 +2271,7 @@ with st.sidebar:
     use_fastapi_backend = st.toggle("Use FastAPI backend when available", value=False)
     st.caption(f"Backend URL: {api_base_url}")
     st.caption(
-        "Full dashboard analysis currently runs locally. FastAPI is used for backend health checks and API analysis snapshot."
+        "FastAPI is optional. Local Streamlit analysis remains available."
     )
     check_backend_clicked = st.button("Check Backend Status")
     backend_health = st.session_state.get("backend_health")
@@ -2304,13 +2297,13 @@ with st.sidebar:
                 st.caption("Turn on 'Use FastAPI backend when available' to enable the API snapshot.")
         else:
             if use_fastapi_backend:
-                st.info("Backend API is offline. Streamlit is using local analysis.")
+                st.info("Backend API is offline. Local Streamlit workflow is active.")
             else:
                 st.info("Backend API is offline. Local Streamlit workflow is active.")
         if isinstance(last_checked_at, datetime):
             st.caption(f"Last checked: {last_checked_at.strftime('%H:%M:%S')}")
     elif use_fastapi_backend:
-        st.info("Backend API is offline. Streamlit is using local analysis.")
+        st.info("Backend API is offline. Local Streamlit workflow is active.")
 
     analysis_mode_slot = st.empty()
     if use_fastapi_backend and backend_available:
@@ -2355,7 +2348,7 @@ with st.sidebar:
         <div class="subtle">
         1. Upload resume<br>
         2. Add job description<br>
-        3. Review intelligence tabs
+        3. Review overview, quality, match, and recruiter workspace
         </div>
         """,
         unsafe_allow_html=True,
@@ -2376,7 +2369,7 @@ top_left, top_right = st.columns([1.18, 0.82], gap="large")
 
 with top_left:
     st.markdown('<div class="input-card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-label">1) Upload Resume</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-label">1) Upload resume</div>', unsafe_allow_html=True)
     main_uploaded_files = st.file_uploader(
         "Upload one or more resumes in PDF, TXT, or DOCX format",
         type=SUPPORTED_FILE_TYPES,
@@ -2398,7 +2391,7 @@ with top_left:
 
     default_jd = load_sample_jd() if use_sample_jd else ""
     st.markdown('<div class="input-card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-label">2) Paste Job Description</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-label">2) Paste job description</div>', unsafe_allow_html=True)
     job_description = st.text_area(
         "Paste job description",
         value=default_jd,
@@ -2445,10 +2438,9 @@ with top_right:
             <div class="section-label">Dashboard Overview</div>
             <div class="subtle">
                 ResumeIQ supports a recruiter and candidate review workflow:
-                it reads resume content, estimates the most likely role,
+                it reads resume content, estimates likely role fit,
                 extracts candidate skills, compares them against a target job,
                 and surfaces fit signals for human review.
-                Final hiring or application decisions should be made by humans using complete context.
             </div>
         </div>
         """,
@@ -2510,8 +2502,8 @@ with input_status_slot:
 
 if uploaded_file is None:
     render_empty_state(
-        "Upload a resume to begin",
-        "Upload a PDF, DOCX, or TXT resume to unlock prediction, ATS compatibility, skill matching, writing-quality checks, and recruiter-style insights.",
+        "Upload a resume to begin analysis.",
+        "Upload a PDF, DOCX, or TXT resume to unlock role prediction, ATS estimates, skill matching, writing-quality checks, and recruiter-style insights.",
     )
     if app_ready:
         render_batch_ranking_section(
@@ -2675,25 +2667,25 @@ else:
             quality_tab,
             match_tab,
             recruiter_tab,
+            assistant_tab,
             model_tab,
             privacy_tab,
-            assistant_tab,
         ) = st.tabs(
             [
                 "Candidate Overview",
                 "Resume Quality",
                 "Job Match Intelligence",
                 "Recruiter Workspace",
+                "Job Application Assistant",
                 "Model Transparency",
                 "Privacy & Responsible AI",
-                "Job Application Assistant",
             ]
         )
 
         with overview_tab:
             render_navigation_section_title(
                 "Candidate Overview",
-                "High-level fit signals, recruiter-readable summary, and priority next steps.",
+                "High-level resume and target-job signals for review.",
             )
             render_analysis_overview(
                 predicted_role=predicted_role,
@@ -2736,7 +2728,7 @@ else:
         with quality_tab:
             render_navigation_section_title(
                 "Resume Quality",
-                "ATS compatibility, writing quality, structure advice, rewrites, and improvement planning.",
+                "Writing, structure, and improvement signals based on the uploaded resume.",
             )
             render_ats_section(ats_result, bool(job_description.strip()))
             template_message = template_detection.get("warning")
@@ -2758,12 +2750,12 @@ else:
         with match_tab:
             render_navigation_section_title(
                 "Job Match Intelligence",
-                "Keyword, taxonomy, semantic, role-profile, and fit-score evidence for the target job.",
+                "Keyword, semantic, and skill alignment against the target job description.",
             )
             if job_description.strip():
                 render_jd_keyword_match_section(match_score, matched_count, missing_count, gap)
             else:
-                render_alert_banner("Paste a job description to unlock matched and missing skill analysis.", "info")
+                render_alert_banner("Paste a job description to unlock ATS, semantic match, and job-fit insights.", "info")
             render_skills_intelligence_section(resume_skills, gap, role_profile_summary, skill_taxonomy_result)
             candidate_name = get_candidate_name_from_parser(parser_result)
             render_semantic_match_section(
@@ -2776,7 +2768,7 @@ else:
         with recruiter_tab:
             render_navigation_section_title(
                 "Recruiter Workspace",
-                "Batch ranking, priority actions, manual notes, shortlist status, and CSV exports.",
+                "Batch ranking, notes, shortlist workflow, and evidence search for recruiter review.",
             )
             candidate_name = get_candidate_name_from_parser(parser_result)
             render_recruiter_copilot_section(
@@ -2792,6 +2784,14 @@ else:
                 job_description,
                 privacy_mode=privacy_mode,
                 enable_database_logging=enable_database_logging,
+            )
+
+        with assistant_tab:
+            render_job_application_assistant_placeholder(
+                privacy_mode=privacy_mode,
+                use_fastapi_backend=use_fastapi_backend,
+                backend_available=backend_available,
+                api_base_url=api_base_url,
             )
 
         with model_tab:
@@ -2816,14 +2816,6 @@ else:
 
         with privacy_tab:
             render_privacy_responsible_ai_section(privacy_mode)
-
-        with assistant_tab:
-            render_job_application_assistant_placeholder(
-                privacy_mode=privacy_mode,
-                use_fastapi_backend=use_fastapi_backend,
-                backend_available=backend_available,
-                api_base_url=api_base_url,
-            )
 
 st.markdown(
     '<div class="footer-note">Built with Streamlit, scikit-learn, pandas, and pypdf. Designed as a responsible local resume intelligence dashboard.</div>',
