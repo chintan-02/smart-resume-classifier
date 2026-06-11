@@ -46,6 +46,33 @@ def test_retrieve_relevant_chunks_returns_skill_chunk_for_query():
     assert "Python" in results[0]["text"] or "SQL" in results[0]["text"]
 
 
+def test_retrieve_relevant_chunks_prioritizes_first_resume_chunks_for_contact_query():
+    corpus = [
+        {
+            "chunk_id": "resume_1",
+            "source": "resume",
+            "text": "Candidate header with contact details.",
+            "display_text": "Candidate header with contact details.",
+        },
+        {
+            "chunk_id": "resume_2",
+            "source": "resume",
+            "text": "Additional profile links and contact context.",
+            "display_text": "Additional profile links and contact context.",
+        },
+        {
+            "chunk_id": "resume_3",
+            "source": "resume",
+            "text": "Deep project section with repeated Python Python Python.",
+            "display_text": "Deep project section with repeated Python Python Python.",
+        },
+    ]
+
+    results = retrieve_relevant_chunks("email phone linkedin github profile Python", corpus, top_k=3)
+
+    assert [result["chunk_id"] for result in results[:2]] == ["resume_1", "resume_2"]
+
+
 def test_classify_recruiter_question_categories():
     assert classify_recruiter_question("What skills does this candidate have?") == "skills"
     assert classify_recruiter_question("What skills match this JD?") == "job_match"
@@ -62,20 +89,98 @@ def test_build_retrieval_answer_does_not_invent_when_evidence_empty():
     assert "does not make hiring decisions" in result["disclaimer"]
 
 
-def test_privacy_mode_masks_email_phone_and_name_in_resume_evidence():
+def test_privacy_mode_masks_email_in_resume_evidence():
     corpus = build_copilot_corpus(
-        resume_text="Jane Doe Data Scientist jane@example.com 555-123-4567 Python SQL",
+        resume_text="Jane Doe Data Scientist jane@example.com Python SQL",
         job_description="Job requires Python.",
         privacy_mode=True,
         candidate_name="Jane Doe",
     )
-    resume_text = " ".join(chunk["text"] for chunk in corpus if chunk["source"] == "resume")
+    resume_text = " ".join(chunk["display_text"] for chunk in corpus if chunk["source"] == "resume")
 
     assert "jane@example.com" not in resume_text
-    assert "555-123-4567" not in resume_text
-    assert "Jane Doe" not in resume_text
     assert "[email]" in resume_text
+
+
+def test_privacy_mode_masks_phone_in_resume_evidence():
+    corpus = build_copilot_corpus(
+        resume_text="Jane Doe Data Scientist 555-123-4567 Python SQL",
+        job_description="Job requires Python.",
+        privacy_mode=True,
+        candidate_name="Jane Doe",
+    )
+    resume_text = " ".join(chunk["display_text"] for chunk in corpus if chunk["source"] == "resume")
+
+    assert "555-123-4567" not in resume_text
     assert "[phone]" in resume_text
+
+
+def test_privacy_mode_masks_linkedin_and_github_in_resume_evidence():
+    corpus = build_copilot_corpus(
+        resume_text=(
+            "Jane Doe Data Scientist https://www.linkedin.com/in/jane-doe "
+            "https://github.com/janedoe Python SQL"
+        ),
+        job_description="Job requires Python.",
+        privacy_mode=True,
+        candidate_name="Jane Doe",
+    )
+    resume_text = " ".join(chunk["display_text"] for chunk in corpus if chunk["source"] == "resume")
+
+    assert "linkedin.com/in/jane-doe" not in resume_text
+    assert "github.com/janedoe" not in resume_text
+    assert "[linkedin]" in resume_text
+    assert "[github]" in resume_text
+
+
+def test_privacy_mode_masks_candidate_name_when_provided():
+    corpus = build_copilot_corpus(
+        resume_text="Jane Doe Data Scientist with Python and SQL experience.",
+        job_description="Job requires Python.",
+        privacy_mode=True,
+        candidate_name="Jane Doe",
+    )
+    resume_text = " ".join(chunk["display_text"] for chunk in corpus if chunk["source"] == "resume")
+
+    assert "Jane Doe" not in resume_text
+    assert "[candidate_name]" in resume_text
+
+
+def test_privacy_mode_does_not_mask_job_description_chunks():
+    corpus = build_copilot_corpus(
+        resume_text="Jane Doe Data Scientist jane@example.com Python SQL",
+        job_description="Contact hiring@example.com for a Python role in Calgary, AB.",
+        privacy_mode=True,
+        candidate_name="Jane Doe",
+    )
+    jd_text = " ".join(chunk["display_text"] for chunk in corpus if chunk["source"] == "job_description")
+
+    assert "hiring@example.com" in jd_text
+    assert "Calgary, AB" in jd_text
+    assert "[email]" not in jd_text
+
+
+def test_ask_recruiter_copilot_returns_masked_resume_evidence_when_privacy_mode_enabled():
+    result = ask_recruiter_copilot(
+        query="Data Scientist Python SQL recruiter evidence.",
+        resume_text=(
+            "Jane Doe Data Scientist jane@example.com 555-123-4567 "
+            "https://linkedin.com/in/jane-doe https://github.com/janedoe Python SQL"
+        ),
+        job_description="Need Python and SQL.",
+        privacy_mode=True,
+        candidate_name="Jane Doe",
+        top_k=3,
+    )
+    evidence_text = " ".join(item["text"] for item in result["evidence"] if item["source"] == "resume")
+
+    assert "Jane Doe" not in evidence_text
+    assert "jane@example.com" not in evidence_text
+    assert "555-123-4567" not in evidence_text
+    assert "linkedin.com/in/jane-doe" not in evidence_text
+    assert "github.com/janedoe" not in evidence_text
+    assert "[candidate_name]" in evidence_text
+    assert "[email]" in evidence_text
 
 
 def test_ask_recruiter_copilot_returns_answer_evidence_limitations_and_disclaimer():

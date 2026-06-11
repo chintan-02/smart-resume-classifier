@@ -6,10 +6,16 @@ from src.privacy_tools import mask_pii
 COPILOT_DISCLAIMER = (
     "This copilot retrieves evidence from the uploaded resume/JD. It does not make hiring decisions."
 )
+CONTACT_QUERY_TERMS = ("contact", "email", "phone", "linkedin", "github", "profile")
 
 
 def normalize_text(text: str) -> str:
     return re.sub(r"\s+", " ", str(text or "")).strip()
+
+
+def _is_contact_query(query: str) -> bool:
+    clean_query = normalize_text(query).lower()
+    return any(term in clean_query for term in CONTACT_QUERY_TERMS)
 
 
 def chunk_text(text: str, chunk_size: int = 500, overlap: int = 80, source: str = "resume") -> list[dict]:
@@ -50,11 +56,19 @@ def build_copilot_corpus(
     privacy_mode: bool = False,
     candidate_name: str | None = None,
 ) -> list[dict]:
-    resume_text_for_display = mask_pii(resume_text, candidate_name=candidate_name) if privacy_mode else resume_text
-    corpus = chunk_text(resume_text_for_display, source="resume")
+    corpus = chunk_text(resume_text, source="resume")
+    for chunk in corpus:
+        chunk["display_text"] = (
+            mask_pii(chunk.get("text", ""), candidate_name=candidate_name)
+            if privacy_mode
+            else chunk.get("text", "")
+        )
 
     if normalize_text(job_description):
-        corpus.extend(chunk_text(job_description or "", source="job_description"))
+        jd_chunks = chunk_text(job_description or "", source="job_description")
+        for chunk in jd_chunks:
+            chunk["display_text"] = chunk.get("text", "")
+        corpus.extend(jd_chunks)
 
     return corpus
 
@@ -80,11 +94,27 @@ def retrieve_relevant_chunks(query: str, corpus: list[dict], top_k: int = 5) -> 
     except Exception:
         return []
 
-    ranked_indexes = similarities.argsort()[::-1][: max(int(top_k or 5), 1)]
+    result_limit = max(int(top_k or 5), 1)
+    priority_indexes = []
+    if _is_contact_query(clean_query):
+        priority_indexes = [
+            index
+            for index, chunk in enumerate(valid_chunks)
+            if chunk.get("source") == "resume" and str(chunk.get("chunk_id", "")).startswith(("resume_1", "resume_2"))
+        ][:2]
+
+    ranked_indexes = list(priority_indexes)
+    ranked_indexes.extend(
+        index
+        for index in similarities.argsort()[::-1]
+        if index not in priority_indexes
+    )
+    ranked_indexes = ranked_indexes[:result_limit]
+
     results = []
     for rank, index in enumerate(ranked_indexes, start=1):
         score = float(similarities[index])
-        if score <= 0:
+        if score <= 0 and index not in priority_indexes:
             continue
         chunk = valid_chunks[index]
         results.append(
@@ -93,7 +123,7 @@ def retrieve_relevant_chunks(query: str, corpus: list[dict], top_k: int = 5) -> 
                 "source": chunk.get("source", "resume"),
                 "chunk_id": chunk.get("chunk_id", f"chunk_{rank}"),
                 "score": round(score, 4),
-                "text": chunk.get("text", ""),
+                "text": chunk.get("display_text", chunk.get("text", "")),
             }
         )
 

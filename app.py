@@ -740,20 +740,23 @@ def render_recruiter_copilot_section(
     sample_question_key = "recruiter_copilot_sample_question"
     query_key = "recruiter_copilot_query"
     synced_question_key = "recruiter_copilot_last_synced_question"
+    query_edited_key = "recruiter_copilot_query_manually_edited"
 
     if sample_question_key not in st.session_state or st.session_state[sample_question_key] not in sample_questions:
         st.session_state[sample_question_key] = sample_questions[0]
-    if (
-        query_key not in st.session_state
-        or st.session_state.get(query_key) in sample_questions
-        or st.session_state.get(query_key) == st.session_state.get(synced_question_key)
-    ):
+    if query_key not in st.session_state or not st.session_state.get(query_edited_key, False):
         st.session_state[query_key] = st.session_state[sample_question_key]
         st.session_state[synced_question_key] = st.session_state[sample_question_key]
 
     def sync_copilot_query_with_sample() -> None:
         st.session_state[query_key] = st.session_state[sample_question_key]
         st.session_state[synced_question_key] = st.session_state[sample_question_key]
+        st.session_state[query_edited_key] = False
+
+    def mark_copilot_query_edited() -> None:
+        st.session_state[query_edited_key] = (
+            st.session_state.get(query_key, "") != st.session_state.get(synced_question_key, "")
+        )
 
     st.selectbox(
         "Sample recruiter questions",
@@ -764,6 +767,7 @@ def render_recruiter_copilot_section(
     query = st.text_input(
         "Ask a recruiter question",
         key=query_key,
+        on_change=mark_copilot_query_edited,
     )
 
     if st.button("Search Evidence", key="recruiter_copilot_search"):
