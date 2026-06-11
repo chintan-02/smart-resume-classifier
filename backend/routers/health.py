@@ -1,7 +1,12 @@
 from fastapi import APIRouter
-from sqlalchemy import inspect, text
 
-from database.db import engine
+try:
+    from sqlalchemy import inspect, text
+    from database.db import engine
+except Exception:
+    inspect = None
+    text = None
+    engine = None
 
 
 router = APIRouter()
@@ -32,6 +37,8 @@ def readiness_check() -> dict:
         checks["warning"] = f"Local analysis modules could not be fully imported: {exc}"
 
     try:
+        if engine is None or inspect is None or text is None:
+            raise RuntimeError("Database support is unavailable.")
         with engine.connect() as connection:
             connection.execute(text("SELECT 1"))
         inspector = inspect(engine)
