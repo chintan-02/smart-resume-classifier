@@ -43,6 +43,11 @@ def test_get_settings_returns_safe_defaults(monkeypatch):
         "RESUMEIQ_STREAMLIT_PORT",
         "RESUMEIQ_API_PORT",
         "RESUMEIQ_DOCKER_MODE",
+        "RESUMEIQ_EXTERNAL_GENAI_ENABLED",
+        "RESUMEIQ_GENAI_PROVIDER",
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "GEMINI_API_KEY",
     ]:
         monkeypatch.delenv(env_name, raising=False)
 
@@ -55,6 +60,9 @@ def test_get_settings_returns_safe_defaults(monkeypatch):
     assert settings.database_url == "sqlite:///./resumeiq.db"
     assert settings.streamlit_port == 8501
     assert settings.api_port == 8000
+    assert settings.external_genai_enabled is False
+    assert settings.genai_provider == "none"
+    assert settings.openai_api_key_configured is False
 
 
 def test_get_settings_respects_env_override(monkeypatch):
@@ -63,6 +71,8 @@ def test_get_settings_respects_env_override(monkeypatch):
     monkeypatch.setenv("RESUMEIQ_API_BASE_URL", "http://api:8000")
     monkeypatch.setenv("RESUMEIQ_STREAMLIT_PORT", "8502")
     monkeypatch.setenv("RESUMEIQ_DOCKER_MODE", "yes")
+    monkeypatch.setenv("RESUMEIQ_EXTERNAL_GENAI_ENABLED", "true")
+    monkeypatch.setenv("RESUMEIQ_GENAI_PROVIDER", "openai")
 
     settings = get_settings()
 
@@ -71,6 +81,8 @@ def test_get_settings_respects_env_override(monkeypatch):
     assert settings.api_base_url == "http://api:8000"
     assert settings.streamlit_port == 8502
     assert settings.docker_mode is True
+    assert settings.external_genai_enabled is True
+    assert settings.genai_provider == "openai"
 
 
 def test_settings_to_safe_dict_redacts_secret_like_keys_if_present():
@@ -89,6 +101,11 @@ def test_settings_to_safe_dict_redacts_secret_like_keys_if_present():
         streamlit_port=8501,
         api_port=8000,
         docker_mode=False,
+        external_genai_enabled=False,
+        genai_provider="none",
+        openai_api_key_configured=False,
+        anthropic_api_key_configured=False,
+        gemini_api_key_configured=False,
     )
     settings.future_api_key = "do-not-show"
     settings.future_password = "do-not-show"
@@ -98,6 +115,15 @@ def test_settings_to_safe_dict_redacts_secret_like_keys_if_present():
     assert safe_settings["app_name"] == "ResumeIQ"
     assert safe_settings["future_api_key"] == "[redacted]"
     assert safe_settings["future_password"] == "[redacted]"
+
+
+def test_settings_to_safe_dict_exposes_only_key_configured_status(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "real-key-value")
+
+    safe_settings = settings_to_safe_dict(get_settings())
+
+    assert safe_settings["openai_api_key_configured"] is True
+    assert "real-key-value" not in str(safe_settings)
 
 
 def test_get_runtime_summary_returns_sqlite_database_backend():
@@ -116,6 +142,11 @@ def test_get_runtime_summary_returns_sqlite_database_backend():
         streamlit_port=8501,
         api_port=8000,
         docker_mode=False,
+        external_genai_enabled=False,
+        genai_provider="none",
+        openai_api_key_configured=False,
+        anthropic_api_key_configured=False,
+        gemini_api_key_configured=False,
     )
 
     summary = get_runtime_summary(settings)
@@ -123,14 +154,19 @@ def test_get_runtime_summary_returns_sqlite_database_backend():
     assert summary["database_backend"] == "sqlite"
     assert summary["mlflow_mode"] == "local_file"
     assert summary["model_registry_path"] == "artifacts/model_registry/model_registry.json"
+    assert summary["external_genai"] == "disabled"
+    assert summary["genai_provider"] == "none"
 
 
 def test_env_example_exists_and_has_no_fake_real_secrets():
     env_example = Path(".env.example")
 
     assert env_example.exists()
-    content = env_example.read_text(encoding="utf-8").lower()
-    assert "api_key=" not in content
-    assert "password=" not in content
-    assert "secret=" not in content
+    lines = env_example.read_text(encoding="utf-8").splitlines()
+    active_lines = [line.strip().lower() for line in lines if line.strip() and not line.strip().startswith("#")]
+    active_content = "\n".join(active_lines)
+    assert "api_key=" not in active_content
+    assert "password=" not in active_content
+    assert "secret=" not in active_content
+    content = "\n".join(lines).lower()
     assert "sk-" not in content

@@ -89,6 +89,8 @@ def test_ready_endpoint(client, temp_ready_database):
     assert checks.get("logging") == "enabled"
     assert checks.get("monitoring") == "local_foundation"
     assert checks.get("rag_copilot") == "available"
+    assert checks.get("external_genai") == "disabled"
+    assert checks.get("genai_provider") == "none"
 
 
 def test_analyze_resume_success(monkeypatch, client, disable_backend_db_writes):
