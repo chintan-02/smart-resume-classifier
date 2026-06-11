@@ -120,3 +120,56 @@ def analyze_resume_via_api(
         "data": data,
         "message": "Backend analysis completed.",
     }
+
+
+def ask_copilot_via_api(
+    query: str,
+    resume_text: str,
+    job_description: str | None = None,
+    privacy_mode: bool = False,
+    candidate_name: str | None = None,
+    top_k: int = 5,
+    base_url: str | None = None,
+    timeout: float = 10.0,
+) -> dict:
+    api_url = (base_url or get_api_base_url()).rstrip("/")
+    payload = {
+        "query": query,
+        "resume_text": resume_text,
+        "job_description": job_description,
+        "privacy_mode": privacy_mode,
+        "candidate_name": candidate_name,
+        "top_k": top_k,
+    }
+
+    try:
+        response = requests.post(f"{api_url}/copilot/ask", json=payload, timeout=timeout)
+        if response.status_code != 200:
+            return {
+                "success": False,
+                "source": "api",
+                "data": None,
+                "message": "Backend copilot retrieval failed or is unavailable. Local copilot can be used.",
+            }
+        data = _safe_json(response)
+        if not data:
+            return {
+                "success": False,
+                "source": "api",
+                "data": None,
+                "message": "Backend copilot retrieval failed or is unavailable. Local copilot can be used.",
+            }
+    except requests.RequestException:
+        return {
+            "success": False,
+            "source": "api",
+            "data": None,
+            "message": "Backend copilot retrieval failed or is unavailable. Local copilot can be used.",
+        }
+
+    return {
+        "success": True,
+        "source": "api",
+        "data": data,
+        "message": "Backend copilot retrieval completed.",
+    }

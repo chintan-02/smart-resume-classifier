@@ -46,6 +46,49 @@ def test_retrieve_relevant_chunks_returns_skill_chunk_for_query():
     assert "Python" in results[0]["text"] or "SQL" in results[0]["text"]
 
 
+def test_job_match_query_returns_resume_and_job_description_evidence_when_available():
+    result = ask_recruiter_copilot(
+        query="Which skills match the job description?",
+        resume_text=(
+            "Candidate has Python, SQL, machine learning, FastAPI, Docker, Streamlit, "
+            "pandas, scikit-learn, and data analysis project experience."
+        ),
+        job_description=(
+            "We are hiring for Python, SQL, machine learning, Docker, FastAPI, "
+            "and deployment skills."
+        ),
+        top_k=5,
+    )
+    sources = {item["source"] for item in result["evidence"]}
+
+    assert result["question_type"] == "job_match"
+    assert "resume" in sources
+    assert "job_description" in sources
+    assert len(result["evidence"]) <= 5
+
+
+def test_job_match_balanced_evidence_keeps_privacy_masking_for_resume_only():
+    result = ask_recruiter_copilot(
+        query="Which skills match the job description?",
+        resume_text=(
+            "Jane Doe Data Scientist jane@example.com has Python, SQL, machine learning, "
+            "FastAPI, Docker, and Streamlit project experience."
+        ),
+        job_description="Contact hiring@example.com. We need Python, SQL, Docker, and FastAPI.",
+        privacy_mode=True,
+        candidate_name="Jane Doe",
+        top_k=5,
+    )
+    resume_evidence = " ".join(item["text"] for item in result["evidence"] if item["source"] == "resume")
+    jd_evidence = " ".join(item["text"] for item in result["evidence"] if item["source"] == "job_description")
+
+    assert "Jane Doe" not in resume_evidence
+    assert "jane@example.com" not in resume_evidence
+    assert "[candidate_name]" in resume_evidence
+    assert "[email]" in resume_evidence
+    assert "hiring@example.com" in jd_evidence
+
+
 def test_retrieve_relevant_chunks_prioritizes_first_resume_chunks_for_contact_query():
     corpus = [
         {

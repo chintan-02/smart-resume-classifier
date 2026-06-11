@@ -4,7 +4,7 @@ from fastapi import Request
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.routers import analyze, health
+from backend.routers import analyze, copilot, health
 from src.monitoring import format_latency_ms, generate_request_id, get_logger, log_event
 
 
@@ -29,6 +29,7 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(analyze.router)
+app.include_router(copilot.router)
 
 
 @app.on_event("startup")

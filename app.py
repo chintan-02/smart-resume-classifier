@@ -14,6 +14,7 @@ from model_registry.model_card import build_baseline_model_card, get_model_card_
 from model_registry.registry import DEFAULT_REGISTRY_PATH, get_latest_model_record
 from src.api_client import (
     analyze_resume_via_api,
+    ask_copilot_via_api,
     check_api_health,
     check_api_ready,
     get_api_base_url,
@@ -712,6 +713,9 @@ def render_recruiter_copilot_section(
     job_description: str,
     privacy_mode: bool = False,
     candidate_name: str = "",
+    use_fastapi_backend: bool = False,
+    backend_available: bool = False,
+    api_base_url: str | None = None,
 ) -> None:
     render_section_title(
         "Recruiter Copilot — Local Evidence Search",
@@ -771,19 +775,39 @@ def render_recruiter_copilot_section(
     )
 
     if st.button("Search Evidence", key="recruiter_copilot_search"):
-        result = ask_recruiter_copilot(
-            query=query,
-            resume_text=resume_text,
-            job_description=job_description,
-            privacy_mode=privacy_mode,
-            candidate_name=candidate_name,
-        )
+        result = None
+        source_label = "Local fallback"
+        if use_fastapi_backend and backend_available:
+            api_result = ask_copilot_via_api(
+                query=query,
+                resume_text=resume_text,
+                job_description=job_description,
+                privacy_mode=privacy_mode,
+                candidate_name=candidate_name,
+                base_url=api_base_url,
+            )
+            if api_result.get("success"):
+                result = api_result.get("data")
+                source_label = "FastAPI backend"
+            else:
+                st.info(api_result.get("message", "Backend copilot unavailable. Using local fallback."))
+
+        if result is None:
+            result = ask_recruiter_copilot(
+                query=query,
+                resume_text=resume_text,
+                job_description=job_description,
+                privacy_mode=privacy_mode,
+                candidate_name=candidate_name,
+            )
         st.session_state["recruiter_copilot_result"] = result
+        st.session_state["recruiter_copilot_source_label"] = source_label
 
     result = st.session_state.get("recruiter_copilot_result")
     if not result:
         return
 
+    st.caption(f"Copilot source: {st.session_state.get('recruiter_copilot_source_label', 'Local fallback')}")
     st.markdown("##### Answer")
     st.write(result.get("answer", ""))
 
@@ -2528,6 +2552,9 @@ else:
                 job_description=job_description,
                 privacy_mode=privacy_mode,
                 candidate_name=candidate_name,
+                use_fastapi_backend=use_fastapi_backend,
+                backend_available=backend_available,
+                api_base_url=api_base_url,
             )
             render_batch_ranking_section(
                 job_description,

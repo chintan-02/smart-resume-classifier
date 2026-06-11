@@ -43,6 +43,7 @@ def readiness_check() -> dict:
         "monitoring": "local_foundation",
         "model_registry": "not_initialized",
         "mlflow": "optional_not_installed",
+        "rag_copilot": "unavailable",
     }
 
     try:
@@ -52,6 +53,12 @@ def readiness_check() -> dict:
     except Exception as exc:
         checks["local_analysis_modules"] = "warning"
         checks["warning"] = f"Local analysis modules could not be fully imported: {exc}"
+
+    try:
+        import src.rag_copilot  # noqa: F401
+        checks["rag_copilot"] = "available"
+    except Exception:
+        checks["rag_copilot"] = "unavailable"
 
     try:
         if engine is None or inspect is None or text is None:

@@ -287,6 +287,32 @@ The copilot is designed for evidence search only. A future step may add LLM summ
 
 ---
 
+## RAG Copilot API
+
+ResumeIQ exposes the same local retrieval-only copilot through FastAPI:
+
+```text
+POST /copilot/ask
+```
+
+The endpoint uses resume and optional job-description text from the current request only. It does not call external AI services, does not require API keys, and does not store full resume or job-description text. When `privacy_mode` is enabled, resume evidence output is masked using local privacy utilities. Streamlit can use this API when the backend toggle is enabled and falls back to local retrieval if the backend is unavailable.
+
+Example:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/copilot/ask" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Which skills match the job description?",
+    "resume_text": "Python developer with SQL, FastAPI, Docker, and machine learning projects.",
+    "job_description": "Hiring for Python, SQL, Docker, FastAPI, and ML deployment.",
+    "privacy_mode": true,
+    "top_k": 5
+  }'
+```
+
+---
+
 ## Logging & Monitoring
 
 ResumeIQ includes a local logging and monitoring foundation:

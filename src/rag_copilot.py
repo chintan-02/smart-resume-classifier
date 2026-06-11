@@ -7,6 +7,7 @@ COPILOT_DISCLAIMER = (
     "This copilot retrieves evidence from the uploaded resume/JD. It does not make hiring decisions."
 )
 CONTACT_QUERY_TERMS = ("contact", "email", "phone", "linkedin", "github", "profile")
+BALANCED_EVIDENCE_QUESTION_TYPES = {"job_match", "skills"}
 
 
 def normalize_text(text: str) -> str:
@@ -16,6 +17,56 @@ def normalize_text(text: str) -> str:
 def _is_contact_query(query: str) -> bool:
     clean_query = normalize_text(query).lower()
     return any(term in clean_query for term in CONTACT_QUERY_TERMS)
+
+
+def _balance_source_indexes(
+    ranked_indexes: list[int],
+    similarities,
+    valid_chunks: list[dict],
+    result_limit: int,
+    question_type: str,
+) -> list[int]:
+    sources = {chunk.get("source") for chunk in valid_chunks}
+    if (
+        result_limit < 2
+        or question_type not in BALANCED_EVIDENCE_QUESTION_TYPES
+        or not {"resume", "job_description"}.issubset(sources)
+    ):
+        return ranked_indexes[:result_limit]
+
+    selected_indexes = list(ranked_indexes[:result_limit])
+    selected_sources = {valid_chunks[index].get("source") for index in selected_indexes}
+    missing_sources = {"resume", "job_description"} - selected_sources
+
+    for source in missing_sources:
+        best_source_index = next(
+            (
+                index
+                for index in ranked_indexes
+                if valid_chunks[index].get("source") == source
+            ),
+            None,
+        )
+        if best_source_index is None:
+            continue
+        if best_source_index in selected_indexes:
+            continue
+        if len(selected_indexes) < result_limit:
+            selected_indexes.append(best_source_index)
+            continue
+
+        replace_position = next(
+            (
+                position
+                for position in range(len(selected_indexes) - 1, -1, -1)
+                if valid_chunks[selected_indexes[position]].get("source") not in missing_sources
+            ),
+            len(selected_indexes) - 1,
+        )
+        selected_indexes[replace_position] = best_source_index
+
+    selected_indexes.sort(key=lambda index: float(similarities[index]), reverse=True)
+    return selected_indexes[:result_limit]
 
 
 def chunk_text(text: str, chunk_size: int = 500, overlap: int = 80, source: str = "resume") -> list[dict]:
@@ -75,6 +126,7 @@ def build_copilot_corpus(
 
 def retrieve_relevant_chunks(query: str, corpus: list[dict], top_k: int = 5) -> list[dict]:
     clean_query = normalize_text(query)
+    question_type = classify_recruiter_question(clean_query)
     valid_chunks = [
         chunk
         for chunk in (corpus or [])
@@ -109,12 +161,22 @@ def retrieve_relevant_chunks(query: str, corpus: list[dict], top_k: int = 5) -> 
         for index in similarities.argsort()[::-1]
         if index not in priority_indexes
     )
-    ranked_indexes = ranked_indexes[:result_limit]
+    ranked_indexes = _balance_source_indexes(
+        ranked_indexes=ranked_indexes,
+        similarities=similarities,
+        valid_chunks=valid_chunks,
+        result_limit=result_limit,
+        question_type=question_type,
+    )
 
     results = []
+    force_balanced_sources = (
+        question_type in BALANCED_EVIDENCE_QUESTION_TYPES
+        and {"resume", "job_description"}.issubset({chunk.get("source") for chunk in valid_chunks})
+    )
     for rank, index in enumerate(ranked_indexes, start=1):
         score = float(similarities[index])
-        if score <= 0 and index not in priority_indexes:
+        if score <= 0 and index not in priority_indexes and not force_balanced_sources:
             continue
         chunk = valid_chunks[index]
         results.append(
