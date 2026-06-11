@@ -1,9 +1,10 @@
 import json
 import logging
-import os
 import uuid
 from datetime import datetime, timezone
 from typing import Any
+
+from src.settings import get_settings
 
 
 SENSITIVE_KEY_PARTS = (
@@ -41,7 +42,7 @@ SAFE_KEYS = {
 
 def get_logger(name: str = "resumeiq") -> logging.Logger:
     logger = logging.getLogger(name)
-    level_name = os.getenv("RESUMEIQ_LOG_LEVEL", "INFO").upper()
+    level_name = get_settings().log_level.upper()
     level = getattr(logging, level_name, logging.INFO)
     logger.setLevel(level)
 

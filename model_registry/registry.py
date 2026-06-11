@@ -3,9 +3,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from model_registry.evaluation import detect_evaluation_risks, normalize_metric
+from src.settings import get_settings
 
 
-DEFAULT_REGISTRY_PATH = "artifacts/model_registry/model_registry.json"
+DEFAULT_REGISTRY_PATH = get_settings().model_registry_path
 
 
 def ensure_registry_dir(path=DEFAULT_REGISTRY_PATH) -> None:

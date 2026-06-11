@@ -8,7 +8,11 @@ on:
 
 env:
   PYTHONPATH: .
+  RESUMEIQ_APP_ENV: ci
   RESUMEIQ_DATABASE_URL: sqlite:///./test_resumeiq_ci.db
+  RESUMEIQ_LOG_LEVEL: INFO
+  RESUMEIQ_MLFLOW_TRACKING_URI: file:./mlruns
+  RESUMEIQ_MODEL_REGISTRY_PATH: artifacts/model_registry/model_registry.json
 
 jobs:
   test:

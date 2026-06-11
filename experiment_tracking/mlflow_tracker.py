@@ -1,7 +1,8 @@
 import importlib
-import os
 from numbers import Number
 from typing import Any
+
+from src.settings import get_settings
 
 
 DEFAULT_TRACKING_URI = "file:./mlruns"
@@ -38,11 +39,11 @@ def is_mlflow_available() -> bool:
 
 
 def get_tracking_uri() -> str:
-    return os.getenv("RESUMEIQ_MLFLOW_TRACKING_URI", DEFAULT_TRACKING_URI)
+    return get_settings().mlflow_tracking_uri
 
 
 def get_experiment_name() -> str:
-    return os.getenv("RESUMEIQ_MLFLOW_EXPERIMENT", DEFAULT_EXPERIMENT_NAME)
+    return get_settings().mlflow_experiment_name
 
 
 def setup_mlflow() -> dict:

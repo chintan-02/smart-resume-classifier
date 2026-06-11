@@ -75,6 +75,7 @@ from src.rewrite_suggestions import generate_rewrite_suggestions, get_rewrite_su
 from src.role_profiles import infer_target_role, get_role_profile, get_role_profile_summary
 from src.semantic_matcher import build_semantic_match_result, get_semantic_summary_cards
 from src.sentence_quality import detect_ai_like_sentences
+from src.settings import get_runtime_summary, get_settings
 from src.skill_taxonomy import compare_skill_categories, get_skill_taxonomy_summary
 from src.skill_extractor import (
     load_skills,
@@ -1513,6 +1514,23 @@ def render_experiment_tracking_section() -> None:
         )
 
 
+def render_runtime_configuration_section() -> None:
+    summary = get_runtime_summary()
+    st.markdown("##### Runtime Configuration")
+
+    cols = st.columns(3)
+    cols[0].metric("Environment", summary.get("app_env", "local"))
+    cols[1].metric("Docker Mode", "On" if summary.get("docker_mode") else "Off")
+    cols[2].metric("Database Backend", summary.get("database_backend", "sqlite"))
+
+    cols = st.columns(3)
+    cols[0].metric("API Base URL", summary.get("api_base_url", "http://127.0.0.1:8000"))
+    cols[1].metric("MLflow Mode", summary.get("mlflow_mode", "local_file"))
+    cols[2].metric("Model Registry", summary.get("model_registry_path", "artifacts/model_registry/model_registry.json"))
+
+    st.caption("Only safe configuration values are displayed. Secrets and sensitive values are not shown.")
+
+
 def render_model_transparency_section(prediction_explanation, top_predictions, metrics, clean_classes, jd_skills, matched_count, missing_count, extra_count) -> None:
     render_section_title(
         "Model Transparency",
@@ -1547,6 +1565,7 @@ def render_model_transparency_section(prediction_explanation, top_predictions, m
 
     render_model_registry_section(metrics)
     render_experiment_tracking_section()
+    render_runtime_configuration_section()
 
     if jd_skills:
         st.markdown("##### Match analytics snapshot")
@@ -1874,6 +1893,7 @@ except Exception as exc:
     st.error(f"Could not load skills list. Details: {exc}")
 
 metrics = get_metrics()
+settings = get_settings()
 
 ensure_batch_file_store()
 
@@ -1882,7 +1902,7 @@ with st.sidebar:
     use_sample_jd = st.toggle("Use sample job description", value=False)
     privacy_mode = st.toggle(
         "Privacy-safe display mode",
-        value=False,
+        value=settings.privacy_mode_default,
         help="Masks common personal identifiers in displayed resume text, batch ranking, recruiter notes, and exports where possible.",
     )
     st.caption(get_privacy_mode_message(privacy_mode))
@@ -1942,7 +1962,7 @@ with st.sidebar:
     st.markdown("### Database Logging")
     enable_database_logging = st.toggle(
         "Save analysis summary to local database",
-        value=False,
+        value=settings.save_analysis_default,
         help="Saves scores, labels, and review metadata only. Full resume text and full job descriptions are not stored.",
     )
     if enable_database_logging:

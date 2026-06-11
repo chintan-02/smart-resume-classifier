@@ -1,8 +1,9 @@
-import os
 from json import JSONDecodeError
 from typing import Any
 
 import requests
+
+from src.settings import get_settings
 
 
 DEFAULT_API_BASE_URL = "http://127.0.0.1:8000"
@@ -10,7 +11,7 @@ API_SERVICE_NAME = "ResumeIQ API"
 
 
 def get_api_base_url() -> str:
-    return os.getenv("RESUMEIQ_API_BASE_URL", DEFAULT_API_BASE_URL).rstrip("/")
+    return get_settings().api_base_url.rstrip("/")
 
 
 def _offline_response(message: str) -> dict:

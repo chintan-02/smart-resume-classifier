@@ -1,15 +1,16 @@
-import os
 from contextlib import contextmanager
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
+
+from src.settings import get_settings
 
 
 DEFAULT_DATABASE_URL = "sqlite:///./resumeiq.db"
 
 
 def get_database_url() -> str:
-    return os.getenv("RESUMEIQ_DATABASE_URL", DEFAULT_DATABASE_URL)
+    return get_settings().database_url
 
 
 DATABASE_URL = get_database_url()

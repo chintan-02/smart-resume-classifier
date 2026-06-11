@@ -2,6 +2,8 @@ from pathlib import Path
 
 from fastapi import APIRouter
 
+from src.settings import get_runtime_summary
+
 try:
     from experiment_tracking.mlflow_tracker import is_mlflow_available
 except Exception:
@@ -29,8 +31,12 @@ def health_check() -> dict:
 
 @router.get("/ready")
 def readiness_check() -> dict:
+    runtime_summary = get_runtime_summary()
     checks = {
         "api": "ok",
+        "config": "loaded",
+        "app_env": runtime_summary.get("app_env"),
+        "docker_mode": runtime_summary.get("docker_mode"),
         "local_analysis_modules": "available",
         "database": "unavailable",
         "logging": "enabled",
@@ -58,7 +64,7 @@ def readiness_check() -> dict:
         checks["database"] = "unavailable"
 
     try:
-        registry_path = Path("artifacts/model_registry/model_registry.json")
+        registry_path = Path(runtime_summary.get("model_registry_path", "artifacts/model_registry/model_registry.json"))
         checks["model_registry"] = "available" if registry_path.exists() else "not_initialized"
     except Exception:
         checks["model_registry"] = "not_initialized"

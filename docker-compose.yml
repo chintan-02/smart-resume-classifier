@@ -7,7 +7,13 @@ services:
     ports:
       - "8000:8000"
     environment:
+      - RESUMEIQ_APP_ENV=docker
+      - RESUMEIQ_DOCKER_MODE=true
       - RESUMEIQ_DATABASE_URL=sqlite:///./data/resumeiq.db
+      - RESUMEIQ_LOG_LEVEL=INFO
+      - RESUMEIQ_API_PORT=8000
+      - RESUMEIQ_MLFLOW_TRACKING_URI=file:./mlruns
+      - RESUMEIQ_MODEL_REGISTRY_PATH=artifacts/model_registry/model_registry.json
     volumes:
       - resumeiq_data:/app/data
 
@@ -19,7 +25,12 @@ services:
     ports:
       - "8501:8501"
     environment:
+      - RESUMEIQ_APP_ENV=docker
+      - RESUMEIQ_DOCKER_MODE=true
       - RESUMEIQ_API_BASE_URL=http://api:8000
+      - RESUMEIQ_DATABASE_URL=sqlite:///./data/resumeiq.db
+      - RESUMEIQ_STREAMLIT_PORT=8501
+      - RESUMEIQ_LOG_LEVEL=INFO
     depends_on:
       - api
     volumes:

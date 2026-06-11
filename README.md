@@ -192,6 +192,31 @@ Docker uses a local SQLite database stored in a Docker volume. No external AI AP
 
 ---
 
+## Configuration & Environment Management
+
+ResumeIQ centralizes runtime configuration in `src/settings.py`. The app uses safe local defaults, so it can run without a `.env` file.
+
+Use `.env.example` as the template for local overrides:
+
+```bash
+cp .env.example .env
+```
+
+Key environment variables:
+
+* `RESUMEIQ_APP_ENV` controls the runtime label, such as `local`, `docker`, or `ci`.
+* `RESUMEIQ_API_BASE_URL` tells Streamlit where the FastAPI backend is available.
+* `RESUMEIQ_DATABASE_URL` controls the local SQLite database path.
+* `RESUMEIQ_MLFLOW_TRACKING_URI` controls optional local MLflow tracking.
+* `RESUMEIQ_MODEL_REGISTRY_PATH` controls the local JSON model registry path.
+* `RESUMEIQ_PRIVACY_MODE_DEFAULT` and `RESUMEIQ_SAVE_ANALYSIS_DEFAULT` control Streamlit toggle defaults.
+
+Local defaults use `http://127.0.0.1:8000`, `sqlite:///./resumeiq.db`, and `file:./mlruns`. Docker Compose overrides the environment to use `http://api:8000` and a SQLite database inside the Docker volume. GitHub Actions sets `RESUMEIQ_APP_ENV=ci` and uses a test SQLite database.
+
+Safety note: `.env`, local database files, and `mlruns/` are ignored by Git. No external AI API keys are required for current local features. Future provider keys should never be committed.
+
+---
+
 ## Model Evaluation & Registry
 
 ResumeIQ includes a local model registry foundation for baseline classifier metadata, evaluation notes, and a simple model card.
