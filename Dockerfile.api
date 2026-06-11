@@ -1,0 +1,18 @@
+FROM python:3.11-slim
+
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+RUN mkdir -p /app_seed/data \
+    && if [ -d data ]; then cp -R data/. /app_seed/data/; fi
+
+EXPOSE 8000
+
+CMD ["sh", "-c", "mkdir -p /app/data && cp -n /app_seed/data/* /app/data/ 2>/dev/null || true; python -m database.init_db && uvicorn backend.main:app --host 0.0.0.0 --port 8000"]

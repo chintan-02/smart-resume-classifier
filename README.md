@@ -162,6 +162,36 @@ http://localhost:8501
 
 ---
 
+## 🐳 Run With Docker
+
+Build and start the Streamlit UI and FastAPI backend:
+
+```bash
+docker compose up --build
+```
+
+Open:
+
+* Streamlit UI: http://localhost:8501
+* FastAPI docs: http://localhost:8000/docs
+* Health check: http://localhost:8000/health
+
+Stop containers:
+
+```bash
+docker compose down
+```
+
+Reset the local Docker database volume:
+
+```bash
+docker compose down -v
+```
+
+Docker uses a local SQLite database stored in a Docker volume. No external AI API keys are required. The Streamlit app connects to the backend at `http://api:8000` inside Docker and can still fall back to local analysis if the API is unavailable.
+
+---
+
 ## 🔁 Retrain Model
 
 ```bash

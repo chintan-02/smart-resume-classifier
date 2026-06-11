@@ -1,0 +1,29 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: resumeiq-api
+    ports:
+      - "8000:8000"
+    environment:
+      - RESUMEIQ_DATABASE_URL=sqlite:///./data/resumeiq.db
+    volumes:
+      - resumeiq_data:/app/data
+
+  streamlit:
+    build:
+      context: .
+      dockerfile: Dockerfile.streamlit
+    container_name: resumeiq-streamlit
+    ports:
+      - "8501:8501"
+    environment:
+      - RESUMEIQ_API_BASE_URL=http://api:8000
+    depends_on:
+      - api
+    volumes:
+      - resumeiq_data:/app/data
+
+volumes:
+  resumeiq_data:

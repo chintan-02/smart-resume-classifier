@@ -1,0 +1,22 @@
+.git
+.venv
+venv
+__pycache__
+**pycache**
+**/__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.mypy_cache
+.DS_Store
+resumeiq.db
+*.db
+*.sqlite
+*.sqlite3
+.env
+.env.*
+models/cache/
+.cache/
+
+# Keep tracked runtime data in the Docker build context.
+# ResumeIQ needs data/skills_list.txt and data/sample_job_description.txt.
