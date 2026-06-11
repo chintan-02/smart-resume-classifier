@@ -210,6 +210,34 @@ The registry stores model metadata and evaluation summaries only. It does not st
 
 ---
 
+## Experiment Tracking
+
+ResumeIQ includes an optional local MLflow foundation for experiment tracking.
+
+Default tracking URI:
+
+```text
+file:./mlruns
+```
+
+Log the current baseline experiment metadata:
+
+```bash
+python scripts/log_baseline_experiment.py
+```
+
+The `mlruns/` directory is ignored by Git. Experiment tracking logs model-level metadata and numeric metrics only. Full resumes, full job descriptions, and raw PII are not logged.
+
+Optional local MLflow UI:
+
+```bash
+mlflow ui --backend-store-uri ./mlruns --port 5000
+```
+
+Remote MLflow tracking, model artifact logging, and deployment governance are future work.
+
+---
+
 ## Logging & Monitoring
 
 ResumeIQ includes a local logging and monitoring foundation:

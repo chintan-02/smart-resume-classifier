@@ -3,6 +3,11 @@ from pathlib import Path
 from fastapi import APIRouter
 
 try:
+    from experiment_tracking.mlflow_tracker import is_mlflow_available
+except Exception:
+    is_mlflow_available = None
+
+try:
     from sqlalchemy import inspect, text
     from database.db import engine
 except Exception:
@@ -31,6 +36,7 @@ def readiness_check() -> dict:
         "logging": "enabled",
         "monitoring": "local_foundation",
         "model_registry": "not_initialized",
+        "mlflow": "optional_not_installed",
     }
 
     try:
@@ -56,6 +62,11 @@ def readiness_check() -> dict:
         checks["model_registry"] = "available" if registry_path.exists() else "not_initialized"
     except Exception:
         checks["model_registry"] = "not_initialized"
+
+    try:
+        checks["mlflow"] = "available" if is_mlflow_available and is_mlflow_available() else "optional_not_installed"
+    except Exception:
+        checks["mlflow"] = "optional_not_installed"
 
     return {
         "status": "ready",

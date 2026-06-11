@@ -28,6 +28,7 @@ artifacts/*.joblib
 
 # Logs
 *.log
+mlruns/
 
 # VS Code
 .vscode/

@@ -9,6 +9,7 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
+from experiment_tracking.mlflow_tracker import build_experiment_tracking_summary
 from model_registry.model_card import build_baseline_model_card, get_model_card_sections
 from model_registry.registry import DEFAULT_REGISTRY_PATH, get_latest_model_record
 from src.api_client import (
@@ -1492,6 +1493,26 @@ def render_model_registry_section(metrics) -> None:
                 st.write(content)
 
 
+def render_experiment_tracking_section() -> None:
+    summary = build_experiment_tracking_summary()
+    st.markdown("##### Experiment Tracking")
+
+    cols = st.columns(5)
+    cols[0].metric("Tool", summary.get("tracking_tool", "MLflow"))
+    cols[1].metric("Mode", summary.get("mode", "local file-based tracking"))
+    cols[2].metric("Status", "Available" if summary.get("available") else "Not installed")
+    cols[3].metric("Tracking URI", summary.get("tracking_uri", "file:./mlruns"))
+    cols[4].metric("Experiment", summary.get("experiment_name", "ResumeIQ Baseline Experiments"))
+
+    st.caption(
+        "Experiment tracking logs model-level metadata and metrics only. Full resumes, job descriptions, and raw PII are not intentionally logged."
+    )
+    if not summary.get("available"):
+        st.info(
+            "MLflow tracking is optional. Install mlflow and run python scripts/log_baseline_experiment.py to log local experiments."
+        )
+
+
 def render_model_transparency_section(prediction_explanation, top_predictions, metrics, clean_classes, jd_skills, matched_count, missing_count, extra_count) -> None:
     render_section_title(
         "Model Transparency",
@@ -1525,6 +1546,7 @@ def render_model_transparency_section(prediction_explanation, top_predictions, m
         st.info("No metrics metadata file found.")
 
     render_model_registry_section(metrics)
+    render_experiment_tracking_section()
 
     if jd_skills:
         st.markdown("##### Match analytics snapshot")
