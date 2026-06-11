@@ -44,6 +44,8 @@ def readiness_check() -> dict:
         "model_registry": "not_initialized",
         "mlflow": "optional_not_installed",
         "rag_copilot": "unavailable",
+        "external_genai": runtime_summary.get("external_genai", "disabled"),
+        "genai_provider": runtime_summary.get("genai_provider", "none"),
     }
 
     try:

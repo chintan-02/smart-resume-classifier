@@ -14,6 +14,8 @@ services:
       - RESUMEIQ_API_PORT=8000
       - RESUMEIQ_MLFLOW_TRACKING_URI=file:./mlruns
       - RESUMEIQ_MODEL_REGISTRY_PATH=artifacts/model_registry/model_registry.json
+      - RESUMEIQ_EXTERNAL_GENAI_ENABLED=false
+      - RESUMEIQ_GENAI_PROVIDER=none
     volumes:
       - resumeiq_data:/app/data
 
@@ -31,6 +33,8 @@ services:
       - RESUMEIQ_DATABASE_URL=sqlite:///./data/resumeiq.db
       - RESUMEIQ_STREAMLIT_PORT=8501
       - RESUMEIQ_LOG_LEVEL=INFO
+      - RESUMEIQ_EXTERNAL_GENAI_ENABLED=false
+      - RESUMEIQ_GENAI_PROVIDER=none
     depends_on:
       - api
     volumes:

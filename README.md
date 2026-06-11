@@ -313,6 +313,24 @@ curl -X POST "http://127.0.0.1:8000/copilot/ask" \
 
 ---
 
+## GenAI Integration Planning
+
+ResumeIQ includes a planning layer for future GenAI features, but external GenAI is disabled by default and no external AI calls are made currently.
+
+Future optional features may include resume rewrites, tailored cover letters, recruiter outreach emails, LinkedIn cold messages, interview questions, RAG answer generation, recruiter summaries, and resume gap explanations.
+
+Before any future external provider call, ResumeIQ will require:
+
+* explicit user consent
+* PII masking before external calls
+* provider configuration through environment variables only
+* safe fallback when a provider is unavailable
+* clear generated-content disclaimers and human review
+
+API keys must never be committed. `.env` is ignored by Git, and `.env.example` documents only safe disabled defaults.
+
+---
+
 ## Logging & Monitoring
 
 ResumeIQ includes a local logging and monitoring foundation:

@@ -48,6 +48,13 @@ from src.fairness_dashboard import (
     get_responsible_ai_checklist,
     get_synthetic_fairness_data,
 )
+from src.genai_planning import (
+    build_genai_readiness_summary,
+    get_future_prompt_templates,
+    get_genai_provider_placeholders,
+    get_genai_safety_policy,
+    get_supported_future_genai_features,
+)
 from src.jd_matcher import analyze_job_description_match, get_match_feedback
 from src.monitoring import build_monitoring_summary, get_monitoring_checklist
 from src.prediction_service import get_top_predictions as get_model_top_predictions
@@ -1886,6 +1893,45 @@ def render_job_application_assistant_placeholder() -> None:
     for index, title in enumerate(cards):
         with columns[index % 2]:
             render_feature_placeholder_card(title, placeholder_text)
+
+    render_section_title(
+        "Future GenAI Assistant Planning",
+        "Consent, privacy, and provider-readiness planning for future optional GenAI features.",
+    )
+    readiness = build_genai_readiness_summary()
+    settings = get_settings()
+    render_alert_banner(
+        "ResumeIQ does not currently send resume or job-description content to external AI providers. Future GenAI features will require explicit user consent, PII masking, and safe fallback.",
+        "info",
+    )
+
+    cols = st.columns(4)
+    cols[0].metric("Current Mode", "Local only")
+    cols[1].metric("External GenAI", "Enabled" if readiness.get("external_genai_enabled") else "Disabled")
+    cols[2].metric("Consent Required", "Yes")
+    cols[3].metric("Provider", settings.genai_provider or "none")
+
+    with st.expander("Planned GenAI features", expanded=False):
+        features_df = pd.DataFrame(get_supported_future_genai_features())
+        st.dataframe(features_df, width="stretch", hide_index=True)
+
+    with st.expander("Provider placeholders", expanded=False):
+        providers_df = pd.DataFrame(get_genai_provider_placeholders())
+        st.dataframe(providers_df, width="stretch", hide_index=True)
+        configured_status = {
+            "openai_api_key_configured": settings.openai_api_key_configured,
+            "anthropic_api_key_configured": settings.anthropic_api_key_configured,
+            "gemini_api_key_configured": settings.gemini_api_key_configured,
+        }
+        st.json(configured_status)
+
+    with st.expander("Safety policy", expanded=False):
+        st.json(get_genai_safety_policy())
+
+    with st.expander("Future prompt templates", expanded=False):
+        for template_name, template_text in get_future_prompt_templates().items():
+            st.markdown(f"**{template_name}**")
+            st.code(template_text, language="text")
 
 
 def summarize_detected_sections(sections: dict) -> dict:

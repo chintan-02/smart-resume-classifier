@@ -21,6 +21,11 @@ class ResumeIQSettings:
     streamlit_port: int
     api_port: int
     docker_mode: bool
+    external_genai_enabled: bool
+    genai_provider: str
+    openai_api_key_configured: bool
+    anthropic_api_key_configured: bool
+    gemini_api_key_configured: bool
 
 
 def parse_bool(value, default=False) -> bool:
@@ -63,6 +68,11 @@ def get_settings() -> ResumeIQSettings:
         streamlit_port=parse_int(os.getenv("RESUMEIQ_STREAMLIT_PORT"), default=8501),
         api_port=parse_int(os.getenv("RESUMEIQ_API_PORT"), default=8000),
         docker_mode=parse_bool(os.getenv("RESUMEIQ_DOCKER_MODE"), default=False),
+        external_genai_enabled=parse_bool(os.getenv("RESUMEIQ_EXTERNAL_GENAI_ENABLED"), default=False),
+        genai_provider=os.getenv("RESUMEIQ_GENAI_PROVIDER", "none"),
+        openai_api_key_configured=bool(os.getenv("OPENAI_API_KEY")),
+        anthropic_api_key_configured=bool(os.getenv("ANTHROPIC_API_KEY")),
+        gemini_api_key_configured=bool(os.getenv("GEMINI_API_KEY")),
     )
 
 
@@ -71,7 +81,9 @@ def settings_to_safe_dict(settings=None) -> dict:
     safe_settings = {}
     for key, value in vars(settings).items():
         normalized_key = str(key).lower()
-        if any(sensitive_part in normalized_key for sensitive_part in SENSITIVE_KEY_PARTS):
+        if normalized_key.endswith("_api_key_configured"):
+            safe_settings[key] = bool(value)
+        elif any(sensitive_part in normalized_key for sensitive_part in SENSITIVE_KEY_PARTS):
             safe_settings[key] = "[redacted]"
         else:
             safe_settings[key] = value
@@ -91,4 +103,6 @@ def get_runtime_summary(settings=None) -> dict:
         "model_registry_path": settings.model_registry_path,
         "privacy_mode_default": settings.privacy_mode_default,
         "save_analysis_default": settings.save_analysis_default,
+        "external_genai": "enabled_with_consent_required" if settings.external_genai_enabled else "disabled",
+        "genai_provider": settings.genai_provider,
     }
