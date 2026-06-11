@@ -44,6 +44,7 @@ def readiness_check() -> dict:
         "model_registry": "not_initialized",
         "mlflow": "optional_not_installed",
         "rag_copilot": "unavailable",
+        "genai_prompt_builder": "unavailable",
         "external_genai": runtime_summary.get("external_genai", "disabled"),
         "genai_provider": runtime_summary.get("genai_provider", "none"),
     }
@@ -61,6 +62,12 @@ def readiness_check() -> dict:
         checks["rag_copilot"] = "available"
     except Exception:
         checks["rag_copilot"] = "unavailable"
+
+    try:
+        import src.genai_prompt_builder  # noqa: F401
+        checks["genai_prompt_builder"] = "available"
+    except Exception:
+        checks["genai_prompt_builder"] = "unavailable"
 
     try:
         if engine is None or inspect is None or text is None:

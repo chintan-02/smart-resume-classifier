@@ -15,6 +15,7 @@ from model_registry.registry import DEFAULT_REGISTRY_PATH, get_latest_model_reco
 from src.api_client import (
     analyze_resume_via_api,
     ask_copilot_via_api,
+    build_genai_prompt_preview_via_api,
     check_api_health,
     check_api_ready,
     get_api_base_url,
@@ -1877,7 +1878,12 @@ def render_logging_monitoring_section() -> None:
         st.markdown(f"- {note}")
 
 
-def render_job_application_assistant_placeholder() -> None:
+def render_job_application_assistant_placeholder(
+    privacy_mode: bool = False,
+    use_fastapi_backend: bool = False,
+    backend_available: bool = False,
+    api_base_url: str | None = None,
+) -> None:
     render_navigation_section_title(
         "Job Application Assistant",
         "Future tools for candidate-facing documents.",
@@ -1972,71 +1978,89 @@ def render_job_application_assistant_placeholder() -> None:
         prompt_kwargs = {
             "consent_given": consent_given,
             "external_enabled": settings.external_genai_enabled,
+            "privacy_mode": privacy_mode,
         }
+        original_bullet = None
+        target_role = None
+        company_name = None
+        role_title = None
+        recruiter_name = None
+        recipient_name = None
+        query = None
+        retrieved_evidence = None
         if task_type == "resume_bullet_rewrite":
+            original_bullet = st.text_input(
+                "Original bullet",
+                value="Built a Streamlit resume analysis app using Python.",
+                key="genai_prompt_original_bullet",
+            )
+            target_role = st.text_input("Target role", value="", key="genai_prompt_target_role")
             prompt_kwargs.update(
                 {
-                    "original_bullet": st.text_input(
-                        "Original bullet",
-                        value="Built a Streamlit resume analysis app using Python.",
-                        key="genai_prompt_original_bullet",
-                    ),
-                    "target_role": st.text_input("Target role", value="", key="genai_prompt_target_role"),
+                    "original_bullet": original_bullet,
+                    "target_role": target_role,
                     "evidence": resume_evidence,
                 }
             )
         elif task_type == "cover_letter":
+            company_name = st.text_input("Company name", value="", key="genai_prompt_company")
+            role_title = st.text_input("Role title", value="", key="genai_prompt_cover_role")
             prompt_kwargs.update(
                 {
                     "resume_evidence": resume_evidence,
                     "job_description_evidence": job_description_evidence,
-                    "company_name": st.text_input("Company name", value="", key="genai_prompt_company"),
-                    "role_title": st.text_input("Role title", value="", key="genai_prompt_cover_role"),
+                    "company_name": company_name,
+                    "role_title": role_title,
                 }
             )
         elif task_type == "recruiter_email":
+            recruiter_name = st.text_input("Recruiter name", value="", key="genai_prompt_recruiter")
+            role_title = st.text_input("Role title", value="", key="genai_prompt_email_role")
             prompt_kwargs.update(
                 {
                     "resume_evidence": resume_evidence,
                     "job_description_evidence": job_description_evidence,
-                    "recruiter_name": st.text_input("Recruiter name", value="", key="genai_prompt_recruiter"),
-                    "role_title": st.text_input("Role title", value="", key="genai_prompt_email_role"),
+                    "recruiter_name": recruiter_name,
+                    "role_title": role_title,
                 }
             )
         elif task_type == "linkedin_message":
+            recipient_name = st.text_input("Recipient name", value="", key="genai_prompt_recipient")
+            role_title = st.text_input("Role title", value="", key="genai_prompt_linkedin_role")
             prompt_kwargs.update(
                 {
                     "resume_evidence": resume_evidence,
                     "job_description_evidence": job_description_evidence,
-                    "recipient_name": st.text_input("Recipient name", value="", key="genai_prompt_recipient"),
-                    "role_title": st.text_input("Role title", value="", key="genai_prompt_linkedin_role"),
+                    "recipient_name": recipient_name,
+                    "role_title": role_title,
                 }
             )
         elif task_type == "interview_questions":
+            target_role = st.text_input("Target role", value="", key="genai_prompt_interview_role")
             prompt_kwargs.update(
                 {
                     "resume_evidence": resume_evidence,
                     "job_description_evidence": job_description_evidence,
-                    "target_role": st.text_input("Target role", value="", key="genai_prompt_interview_role"),
+                    "target_role": target_role,
                 }
             )
         elif task_type == "rag_answer_generation":
-            rag_question = st.text_input(
+            query = st.text_input(
                 "RAG question",
                 value="Which skills match the job description?",
                 key="genai_prompt_rag_question",
             )
+            retrieved_evidence = [
+                {"source": "resume", "chunk_id": "resume_1", "text": item}
+                for item in resume_evidence
+            ] + [
+                {"source": "job_description", "chunk_id": "job_description_1", "text": item}
+                for item in job_description_evidence
+            ]
             prompt_kwargs.update(
                 {
-                    "query": rag_question,
-                    "retrieved_evidence": [
-                        {"source": "resume", "chunk_id": "resume_1", "text": item}
-                        for item in resume_evidence
-                    ]
-                    + [
-                        {"source": "job_description", "chunk_id": "job_description_1", "text": item}
-                        for item in job_description_evidence
-                    ],
+                    "query": query,
+                    "retrieved_evidence": retrieved_evidence,
                     "privacy_mode": privacy_mode,
                 }
             )
@@ -2056,7 +2080,34 @@ def render_job_application_assistant_placeholder() -> None:
             )
 
         if st.button("Build Prompt Preview", key="genai_prompt_preview_button"):
-            preview = build_prompt_preview(task_type, **prompt_kwargs)
+            preview = None
+            source_label = "Local fallback" if use_fastapi_backend else "Local builder"
+            if use_fastapi_backend and backend_available:
+                api_result = build_genai_prompt_preview_via_api(
+                    task_type=task_type,
+                    resume_evidence=resume_evidence,
+                    job_description_evidence=job_description_evidence,
+                    original_bullet=original_bullet,
+                    target_role=target_role,
+                    company_name=company_name,
+                    role_title=role_title,
+                    recruiter_name=recruiter_name,
+                    recipient_name=recipient_name,
+                    query=query,
+                    retrieved_evidence=retrieved_evidence,
+                    privacy_mode=privacy_mode,
+                    consent_given=consent_given,
+                    base_url=api_base_url,
+                )
+                if api_result.get("success"):
+                    preview = (api_result.get("data") or {}).get("prompt_preview")
+                    source_label = "FastAPI backend"
+                else:
+                    st.info(api_result.get("message", "Backend prompt preview unavailable. Using local fallback."))
+                    source_label = "Local fallback"
+            if preview is None:
+                preview = build_prompt_preview(task_type, **prompt_kwargs)
+            st.caption(f"Prompt preview source: {source_label}")
             st.metric("Allowed for external use", "Yes" if preview.get("allowed_for_external_use") else "No")
             if preview.get("blocked_reason"):
                 st.info(preview.get("blocked_reason"))
@@ -2767,7 +2818,12 @@ else:
             render_privacy_responsible_ai_section(privacy_mode)
 
         with assistant_tab:
-            render_job_application_assistant_placeholder()
+            render_job_application_assistant_placeholder(
+                privacy_mode=privacy_mode,
+                use_fastapi_backend=use_fastapi_backend,
+                backend_available=backend_available,
+                api_base_url=api_base_url,
+            )
 
 st.markdown(
     '<div class="footer-note">Built with Streamlit, scikit-learn, pandas, and pypdf. Designed as a responsible local resume intelligence dashboard.</div>',

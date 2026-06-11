@@ -173,3 +173,74 @@ def ask_copilot_via_api(
         "data": data,
         "message": "Backend copilot retrieval completed.",
     }
+
+
+def build_genai_prompt_preview_via_api(
+    task_type: str,
+    resume_evidence: list[str] | None = None,
+    job_description_evidence: list[str] | None = None,
+    user_goal: str | None = None,
+    original_bullet: str | None = None,
+    target_role: str | None = None,
+    company_name: str | None = None,
+    role_title: str | None = None,
+    recruiter_name: str | None = None,
+    recipient_name: str | None = None,
+    query: str | None = None,
+    retrieved_evidence: list[dict] | None = None,
+    privacy_mode: bool = True,
+    candidate_name: str | None = None,
+    consent_given: bool = False,
+    base_url: str | None = None,
+    timeout: float = 10.0,
+) -> dict:
+    api_url = (base_url or get_api_base_url()).rstrip("/")
+    payload = {
+        "task_type": task_type,
+        "resume_evidence": resume_evidence,
+        "job_description_evidence": job_description_evidence,
+        "user_goal": user_goal,
+        "original_bullet": original_bullet,
+        "target_role": target_role,
+        "company_name": company_name,
+        "role_title": role_title,
+        "recruiter_name": recruiter_name,
+        "recipient_name": recipient_name,
+        "query": query,
+        "retrieved_evidence": retrieved_evidence,
+        "privacy_mode": privacy_mode,
+        "candidate_name": candidate_name,
+        "consent_given": consent_given,
+    }
+
+    try:
+        response = requests.post(f"{api_url}/genai/prompt-preview", json=payload, timeout=timeout)
+        if response.status_code != 200:
+            return {
+                "success": False,
+                "source": "api",
+                "data": None,
+                "message": "Backend prompt preview failed or is unavailable. Local prompt builder can be used.",
+            }
+        data = _safe_json(response)
+        if not data:
+            return {
+                "success": False,
+                "source": "api",
+                "data": None,
+                "message": "Backend prompt preview failed or is unavailable. Local prompt builder can be used.",
+            }
+    except requests.RequestException:
+        return {
+            "success": False,
+            "source": "api",
+            "data": None,
+            "message": "Backend prompt preview failed or is unavailable. Local prompt builder can be used.",
+        }
+
+    return {
+        "success": True,
+        "source": "api",
+        "data": data,
+        "message": "Backend prompt preview completed.",
+    }

@@ -347,6 +347,35 @@ External use is blocked by default. Future external generation will require expl
 
 ---
 
+## GenAI Prompt Preview API
+
+ResumeIQ exposes the safe prompt builder through FastAPI:
+
+```text
+POST /genai/prompt-preview
+```
+
+This endpoint builds prompt previews only. It does not call external AI providers, does not generate output, and does not store prompt content. Consent and external GenAI configuration control `allowed_for_external_use`; by default external use is blocked. When `privacy_mode` is enabled, evidence is redacted before it appears in the prompt preview.
+
+Streamlit can use the backend prompt preview when the FastAPI backend toggle is enabled and falls back to the local prompt builder when the backend is unavailable.
+
+Example:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/genai/prompt-preview" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "task_type": "resume_bullet_rewrite",
+    "original_bullet": "Built a Streamlit resume analysis app using Python.",
+    "resume_evidence": ["Python, Streamlit, FastAPI project experience."],
+    "job_description_evidence": ["Role asks for Python and FastAPI."],
+    "privacy_mode": true,
+    "consent_given": false
+  }'
+```
+
+---
+
 ## Logging & Monitoring
 
 ResumeIQ includes a local logging and monitoring foundation:
