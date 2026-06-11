@@ -31,4 +31,7 @@ artifacts/*.joblib
 
 # Data (optional - only if large)
 # data/*.csv
-# data/*.txt
+# data/*.txtresumeiq.db
+*.db
+*.sqlite
+*.sqlite3
