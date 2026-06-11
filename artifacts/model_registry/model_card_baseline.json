@@ -1,0 +1,42 @@
+{
+  "model_name": "ResumeIQ Baseline Resume Classifier",
+  "model_version": "baseline-v1",
+  "model_type": "TF-IDF + Logistic Regression",
+  "task": "Resume role classification",
+  "intended_use": "Decision-support signal for resume intelligence workflows.",
+  "not_intended_use": [
+    "Final hiring decisions",
+    "Automated rejection",
+    "Protected attribute inference",
+    "Legal or compliance decisions"
+  ],
+  "training_data_summary": "Baseline dataset from local data/resume_dataset.csv. Full resume text is not stored in registry metadata.",
+  "evaluation_summary": {
+    "metrics": {
+      "accuracy": 1.0,
+      "precision_macro": null,
+      "recall_macro": null,
+      "f1_macro": null,
+      "precision_weighted": null,
+      "recall_weighted": null,
+      "f1_weighted": null
+    },
+    "caveats": [
+      "Very high validation accuracy may indicate an easy dataset, small validation split, overfitting, or data leakage. Review evaluation setup."
+    ]
+  },
+  "known_limitations": [
+    "May show low confidence on real resumes",
+    "May be sensitive to resume wording and formatting",
+    "Validation accuracy should be investigated if unusually high",
+    "Does not replace human review"
+  ],
+  "privacy_notes": [
+    "Full resume text should not be stored in model registry metadata",
+    "PII should be masked in display/export workflows"
+  ],
+  "responsible_ai_notes": [
+    "Does not score protected attributes",
+    "Use combined fit signals and human review"
+  ]
+}

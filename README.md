@@ -192,6 +192,24 @@ Docker uses a local SQLite database stored in a Docker volume. No external AI AP
 
 ---
 
+## Model Evaluation & Registry
+
+ResumeIQ includes a local model registry foundation for baseline classifier metadata, evaluation notes, and a simple model card.
+
+Create or refresh the local baseline registry files:
+
+```bash
+python scripts/register_baseline_model.py
+```
+
+This writes local JSON metadata under `artifacts/model_registry/`.
+
+The baseline model currently reports very high validation accuracy. Treat that as a review signal, not production proof. It should be checked later for data leakage, small validation split, class imbalance, overfitting, and real-resume calibration.
+
+The registry stores model metadata and evaluation summaries only. It does not store full resume text, full job descriptions, or raw PII. MLflow or a cloud model registry can be added later when experiment tracking and deployment governance are introduced.
+
+---
+
 ## Logging & Monitoring
 
 ResumeIQ includes a local logging and monitoring foundation:

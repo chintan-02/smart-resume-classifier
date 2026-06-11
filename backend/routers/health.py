@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi import APIRouter
 
 try:
@@ -28,6 +30,7 @@ def readiness_check() -> dict:
         "database": "unavailable",
         "logging": "enabled",
         "monitoring": "local_foundation",
+        "model_registry": "not_initialized",
     }
 
     try:
@@ -47,6 +50,12 @@ def readiness_check() -> dict:
         checks["database"] = "available" if inspector.has_table("analysis_runs") else "not_initialized"
     except Exception:
         checks["database"] = "unavailable"
+
+    try:
+        registry_path = Path("artifacts/model_registry/model_registry.json")
+        checks["model_registry"] = "available" if registry_path.exists() else "not_initialized"
+    except Exception:
+        checks["model_registry"] = "not_initialized"
 
     return {
         "status": "ready",

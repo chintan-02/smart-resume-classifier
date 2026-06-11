@@ -45,9 +45,9 @@ def render_hero() -> None:
     )
 
 
-def render_page_header() -> None:
+def render_page_header(primary_analysis_badge: str = "Local analysis currently active") -> None:
     badges = [
-        "Local analysis currently active",
+        primary_analysis_badge,
         "Decision-support tool",
         "Recruiter-ready insights",
         "Privacy-safe mode available",
