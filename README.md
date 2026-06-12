@@ -153,3 +153,11 @@ ResumeIQ is a portfolio/capstone-ready engineering project under active developm
 - [Roadmap](docs/ROADMAP.md)
 - [Screenshots Guide](docs/SCREENSHOTS.md)
 - [Development Notes](docs/DEVELOPMENT_NOTES.md)
+
+## Portfolio Presentation Pack
+
+- [Screenshot Capture Plan](docs/portfolio/SCREENSHOT_CAPTURE_PLAN.md)
+- [Project Presentation Script](docs/portfolio/PROJECT_PRESENTATION_SCRIPT.md)
+- [LinkedIn Featured Description](docs/portfolio/LINKEDIN_FEATURED_DESCRIPTION.md)
+- [Interview Talking Points](docs/portfolio/INTERVIEW_TALKING_POINTS.md)
+- [One-Page Project Summary](docs/portfolio/PROJECT_ONE_PAGE_SUMMARY.md)
