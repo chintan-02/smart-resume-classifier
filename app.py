@@ -109,6 +109,7 @@ from src.ui.ui_components import (
     render_workflow_status,
 )
 from src.ui.ui_styles import apply_global_styles
+from src.version import get_version_info
 from database.db import get_db_session
 from database.repositories import (
     create_analysis_run,
@@ -2357,6 +2358,15 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### Local Run")
     st.code("streamlit run app.py --server.fileWatcherType none", language="bash")
+
+    version_info = get_version_info()
+    with st.expander("App Version", expanded=False):
+        st.caption(version_info["app_name"])
+        st.caption(f"Version: {version_info['app_version']}")
+        st.caption(f"Stage: {version_info['app_stage']}")
+        st.caption(f"Build: {version_info['build_label']}")
+        st.caption(f"Environment: {version_info['deployment_env']}")
+        st.caption(f"Git commit: {version_info['git_commit']}")
 
 primary_analysis_badge = (
     "Local workflow + API snapshot"

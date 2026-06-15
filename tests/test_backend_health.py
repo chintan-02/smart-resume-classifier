@@ -85,6 +85,7 @@ def test_ready_endpoint(client, temp_ready_database):
     assert response.status_code == 200
     assert "checks" in data
     assert "api" in checks
+    assert checks.get("version_info") == "available"
     assert checks.get("database") in {"available", "not_initialized", "unavailable"}
     assert checks.get("logging") == "enabled"
     assert checks.get("monitoring") == "local_foundation"

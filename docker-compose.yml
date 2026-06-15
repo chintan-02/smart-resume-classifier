@@ -8,6 +8,7 @@ services:
       - "8000:8000"
     environment:
       - RESUMEIQ_APP_ENV=docker
+      - RESUMEIQ_GIT_COMMIT=local-docker
       - RESUMEIQ_DOCKER_MODE=true
       - RESUMEIQ_DATABASE_URL=sqlite:///./data/resumeiq.db
       - RESUMEIQ_LOG_LEVEL=INFO
@@ -28,6 +29,7 @@ services:
       - "8501:8501"
     environment:
       - RESUMEIQ_APP_ENV=docker
+      - RESUMEIQ_GIT_COMMIT=local-docker
       - RESUMEIQ_DOCKER_MODE=true
       - RESUMEIQ_API_BASE_URL=http://api:8000
       - RESUMEIQ_DATABASE_URL=sqlite:///./data/resumeiq.db

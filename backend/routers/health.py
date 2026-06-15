@@ -35,6 +35,7 @@ def readiness_check() -> dict:
     checks = {
         "api": "ok",
         "config": "loaded",
+        "version_info": "available",
         "app_env": runtime_summary.get("app_env"),
         "docker_mode": runtime_summary.get("docker_mode"),
         "local_analysis_modules": "available",

@@ -145,6 +145,19 @@ pytest
 
 CI also validates database initialization, FastAPI import, Docker Compose config, and Docker image builds.
 
+## Deployment Version Check
+
+ResumeIQ exposes lightweight build metadata so local and deployed environments can be compared:
+
+- The Streamlit sidebar includes an **App Version** expander with the version, build label, environment, and Git commit label.
+- FastAPI exposes the same metadata at `GET /version`.
+- Azure may show an older UI when its deployment workflow has not run after recent commits.
+- Set `RESUMEIQ_GIT_COMMIT` in the deployment environment to the deployed commit SHA or another traceable commit label.
+- `RESUMEIQ_APP_ENV` identifies the runtime environment, such as `local`, `docker`, or `azure`.
+- If the Azure workflow is manual-only, pushing commits to GitHub will not automatically update Azure.
+
+These checks provide deployment visibility only. They do not confirm that Azure is currently deployed.
+
 ## Common Troubleshooting
 
 ### Port 8000 already in use
