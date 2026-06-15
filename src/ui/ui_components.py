@@ -157,6 +157,30 @@ def render_workflow_status(items) -> None:
         )
 
 
+def render_version_info(version_info: dict) -> None:
+    rows = [
+        ("Version", version_info.get("app_version")),
+        ("Stage", version_info.get("app_stage")),
+        ("Build", version_info.get("build_label")),
+        ("Environment", version_info.get("deployment_env")),
+        ("Git commit", version_info.get("git_commit")),
+    ]
+    row_markup = "".join(
+        '<div class="version-row">'
+        f'<span class="version-label">{_safe_text(label)}</span>'
+        f'<span class="version-value">{_safe_text(value)}</span>'
+        "</div>"
+        for label, value in rows
+    )
+    st.markdown(
+        '<div class="version-panel">'
+        f'<div class="version-app-name">{_safe_text(version_info.get("app_name"))}</div>'
+        f"{row_markup}"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+
 def render_feature_placeholder_card(title, description) -> None:
     st.markdown(
         f"""

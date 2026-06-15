@@ -106,6 +106,7 @@ from src.ui.ui_components import (
     render_metric_card,
     render_score_summary,
     render_section_title,
+    render_version_info,
     render_workflow_status,
 )
 from src.ui.ui_styles import apply_global_styles
@@ -2355,18 +2356,15 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-    st.markdown("---")
-    st.markdown("### Local Run")
-    st.code("streamlit run app.py --server.fileWatcherType none", language="bash")
-
     version_info = get_version_info()
+    st.markdown("---")
     with st.expander("App Version", expanded=False):
-        st.caption(version_info["app_name"])
-        st.caption(f"Version: {version_info['app_version']}")
-        st.caption(f"Stage: {version_info['app_stage']}")
-        st.caption(f"Build: {version_info['build_label']}")
-        st.caption(f"Environment: {version_info['deployment_env']}")
-        st.caption(f"Git commit: {version_info['git_commit']}")
+        render_version_info(version_info)
+
+    if version_info["deployment_env"].lower() == "local":
+        with st.expander("Developer Notes", expanded=False):
+            st.markdown("**Developer Run Command**")
+            st.code("streamlit run app.py --server.fileWatcherType none", language="bash")
 
 primary_analysis_badge = (
     "Local workflow + API snapshot"
