@@ -42,33 +42,28 @@ def apply_global_styles() -> None:
             border-right: 1px solid rgba(148,163,184,0.14);
         }
 
+        body,
+        .stApp,
         section[data-testid="stSidebar"] {
             color: #e5e7eb;
         }
 
-        section[data-testid="stSidebar"] h1,
-        section[data-testid="stSidebar"] h2,
-        section[data-testid="stSidebar"] h3,
-        section[data-testid="stSidebar"] label,
-        section[data-testid="stSidebar"] p,
-        section[data-testid="stSidebar"] span {
-            color: #e5e7eb;
+        section[data-testid="stSidebar"] * {
+            color: #e5e7eb !important;
         }
 
-        section[data-testid="stSidebar"] [data-testid="stCaptionContainer"],
-        section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] p,
-        section[data-testid="stSidebar"] .subtle {
-            color: #aab6c5 !important;
+        div[data-testid="stMarkdownContainer"],
+        div[data-testid="stMarkdownContainer"] p {
+            color: #cbd5e1;
+        }
+
+        section[data-testid="stSidebar"] div[data-testid="stMarkdownContainer"],
+        section[data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] p {
+            color: #cbd5e1 !important;
         }
 
         section[data-testid="stSidebar"] hr {
             border-color: rgba(148,163,184,0.18) !important;
-        }
-
-        section[data-testid="stSidebar"] [data-testid="stAlert"] {
-            color: #e5e7eb;
-            background: rgba(30,41,59,0.72);
-            border: 1px solid rgba(148,163,184,0.2);
         }
 
         h1, h2, h3, h4, h5, h6, p, li, label, span {
@@ -376,50 +371,8 @@ def apply_global_styles() -> None:
             line-height: 1.65;
         }
 
-        [data-testid="stFileUploader"] {
-            background: rgba(15,23,42,0.58);
-            border: 1px solid rgba(148,163,184,0.16);
-            border-radius: 14px;
-            padding: 0.7rem;
-        }
-
-        div[data-testid="stFileUploaderDropzone"] {
-            background: linear-gradient(145deg, rgba(15,23,42,0.94), rgba(30,41,59,0.78)) !important;
-            border: 1px dashed rgba(96,165,250,0.46) !important;
-            border-radius: 12px !important;
-            color: #e5e7eb !important;
-            transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
-        }
-
-        div[data-testid="stFileUploaderDropzone"]:hover {
-            background: linear-gradient(145deg, rgba(30,41,59,0.96), rgba(30,58,95,0.78)) !important;
-            border-color: rgba(103,232,249,0.72) !important;
-            box-shadow: 0 10px 28px rgba(2,132,199,0.12);
-        }
-
-        div[data-testid="stFileUploaderDropzone"] span,
-        div[data-testid="stFileUploaderDropzone"] small,
-        div[data-testid="stFileUploaderDropzone"] svg {
-            color: #cbd5e1 !important;
-            fill: currentColor !important;
-        }
-
-        div[data-testid="stFileUploaderDropzone"] button {
-            background: rgba(37,99,235,0.22) !important;
-            border: 1px solid rgba(96,165,250,0.5) !important;
-            color: #eff6ff !important;
-        }
-
-        div[data-testid="stFileUploaderDropzone"] button:hover {
-            background: rgba(37,99,235,0.34) !important;
-            border-color: rgba(125,211,252,0.72) !important;
-        }
-
-        [data-testid="stTextArea"] textarea,
-        .stTextArea textarea,
-        .stTextInput input,
-        div[data-baseweb="textarea"] textarea,
-        div[data-baseweb="input"] input {
+        div[data-testid="stTextArea"] textarea,
+        div[data-testid="stTextInput"] input {
             background: rgba(15,23,42,0.68) !important;
             color: #f8fafc !important;
             border: 1px solid rgba(148,163,184,0.2) !important;
@@ -427,52 +380,32 @@ def apply_global_styles() -> None:
             caret-color: #67e8f9 !important;
         }
 
-        div[data-baseweb="textarea"],
-        div[data-baseweb="input"] {
-            background: rgba(15,23,42,0.68) !important;
-            border-radius: 12px !important;
-        }
-
-        [data-testid="stTextArea"] textarea:focus,
-        .stTextInput input:focus,
-        div[data-baseweb="textarea"] textarea:focus,
-        div[data-baseweb="input"] input:focus {
+        div[data-testid="stTextArea"] textarea:focus,
+        div[data-testid="stTextInput"] input:focus {
             border-color: rgba(103,232,249,0.76) !important;
-            box-shadow: 0 0 0 2px rgba(34,211,238,0.12) !important;
             outline: none !important;
         }
 
-        textarea::placeholder,
-        input::placeholder {
+        div[data-testid="stTextArea"] textarea::placeholder,
+        div[data-testid="stTextInput"] input::placeholder {
             color: #94a3b8 !important;
             opacity: 1 !important;
         }
 
-        .stButton > button,
-        .stDownloadButton > button,
-        button[kind="secondary"] {
+        div[data-testid="stButton"] button {
             background: rgba(30,41,59,0.86) !important;
             border: 1px solid rgba(148,163,184,0.3) !important;
             color: #e5e7eb !important;
             border-radius: 10px !important;
         }
 
-        .stButton > button:hover,
-        .stDownloadButton > button:hover,
-        button[kind="secondary"]:hover {
-            background: rgba(51,65,85,0.92) !important;
-            border-color: rgba(96,165,250,0.56) !important;
-            color: #ffffff !important;
-        }
-
-        .stButton > button[kind="primary"] {
+        div[data-testid="stButton"] button[kind="primary"] {
             background: linear-gradient(135deg, #2563eb, #0f766e) !important;
             border-color: rgba(125,211,252,0.5) !important;
             color: #ffffff !important;
         }
 
-        .stButton > button:disabled,
-        .stDownloadButton > button:disabled {
+        div[data-testid="stButton"] button:disabled {
             background: rgba(30,41,59,0.48) !important;
             border-color: rgba(148,163,184,0.16) !important;
             color: #94a3b8 !important;
@@ -504,62 +437,6 @@ def apply_global_styles() -> None:
         .stTabs [aria-selected="true"] {
             color: #ffffff !important;
             background: rgba(37,99,235,0.24) !important;
-        }
-
-        div[data-testid="stExpander"] {
-            background: rgba(15,23,42,0.45);
-            border: 1px solid rgba(148,163,184,0.15);
-            border-radius: 12px;
-        }
-
-        section[data-testid="stSidebar"] div[data-testid="stExpander"] {
-            background: rgba(15,23,42,0.68);
-            border-color: rgba(148,163,184,0.22);
-        }
-
-        section[data-testid="stSidebar"] div[data-testid="stExpander"] summary,
-        section[data-testid="stSidebar"] div[data-testid="stExpander"] summary span {
-            color: #e5e7eb !important;
-            font-weight: 650;
-        }
-
-        .version-panel {
-            display: grid;
-            gap: 0.48rem;
-            padding: 0.15rem 0.1rem 0.25rem;
-        }
-
-        .version-app-name {
-            color: #f8fafc;
-            font-size: 0.98rem;
-            font-weight: 800;
-            padding-bottom: 0.4rem;
-            border-bottom: 1px solid rgba(148,163,184,0.18);
-        }
-
-        .version-row {
-            display: grid;
-            grid-template-columns: minmax(5.4rem, auto) 1fr;
-            gap: 0.65rem;
-            align-items: start;
-            font-size: 0.82rem;
-            line-height: 1.4;
-        }
-
-        .version-label {
-            color: #cbd5e1 !important;
-            font-weight: 700;
-        }
-
-        .version-value {
-            color: #e5e7eb !important;
-            overflow-wrap: anywhere;
-        }
-
-        [data-testid="stDataFrame"] {
-            border: 1px solid rgba(148,163,184,0.14);
-            border-radius: 12px;
-            overflow: hidden;
         }
 
         hr {

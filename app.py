@@ -106,7 +106,6 @@ from src.ui.ui_components import (
     render_metric_card,
     render_score_summary,
     render_section_title,
-    render_version_info,
     render_workflow_status,
 )
 from src.ui.ui_styles import apply_global_styles
@@ -2359,10 +2358,14 @@ with st.sidebar:
     version_info = get_version_info()
     st.markdown("---")
     with st.expander("App Version", expanded=False):
-        render_version_info(version_info)
+        st.markdown(f"**Version:** {version_info['app_version']}")
+        st.markdown(f"**Stage:** {version_info['app_stage']}")
+        st.markdown(f"**Build:** {version_info['build_label']}")
+        st.markdown(f"**Environment:** {version_info['deployment_env']}")
+        st.markdown(f"**Git commit:** {version_info['git_commit']}")
 
     if version_info["deployment_env"].lower() == "local":
-        with st.expander("Developer Notes", expanded=False):
+        with st.expander("Developer run command", expanded=False):
             st.markdown("**Developer Run Command**")
             st.code("streamlit run app.py --server.fileWatcherType none", language="bash")
 
