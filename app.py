@@ -1612,7 +1612,12 @@ def render_model_registry_section(metrics) -> None:
     cols[1].metric("Version", model_record.get("model_version", "baseline-v1"))
     cols[2].metric("Type", model_record.get("model_type", "TF-IDF + Logistic Regression"))
     cols[3].metric("Status", model_record.get("status", "needs_review"))
-    cols[4].metric("Accuracy", format_registry_metric(model_metrics.get("accuracy")))
+    cols[4].metric("Reported accuracy", format_registry_metric(model_metrics.get("accuracy")))
+
+    if model_metrics.get("accuracy") is not None:
+        st.caption(
+            f"Validation accuracy reported: {format_registry_metric(model_metrics.get('accuracy'))} — review before production. This is one decision-support signal, not a guarantee."
+        )
 
     risk_notes = model_record.get("evaluation_risks", [])
     if risk_notes:
@@ -1673,7 +1678,7 @@ def render_model_transparency_section(prediction_explanation, top_predictions, m
         "Model behavior, confidence, evidence terms, registry, and experiment tracking.",
     )
     render_alert_banner(
-        "The baseline model reports very high validation accuracy. This should be reviewed for data leakage, small validation split, class imbalance, or overfitting before production use.",
+        "The baseline model reports very high validation accuracy. This should be reviewed for possible data leakage, small validation split, class imbalance, or overfitting before production use. Treat it as one decision-support signal, not a guarantee.",
         "info",
     )
 
@@ -2334,13 +2339,36 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown("### Model Snapshot")
-    accuracy = metrics.get("accuracy", 0)
-    st.metric("Validation accuracy", f"{accuracy:.2%}")
-    st.caption("Baseline TF-IDF + Logistic Regression model. Treat high validation accuracy as a signal to investigate later.")
-
     classes = metrics.get("report", {}).keys()
     clean_classes = [c for c in classes if c not in {"accuracy", "macro avg", "weighted avg"}]
-    st.caption(f"Supported roles: {', '.join(clean_classes[:10])}")
+    st.markdown(
+        """
+        <div class="panel-card">
+            <div class="section-label">Baseline Classifier</div>
+            <div class="subtle">TF-IDF + Logistic Regression</div>
+            <div class="status-badge status-muted">
+                <span>Status</span>
+                <strong>Demo baseline</strong>
+            </div>
+            <div class="status-badge status-muted">
+                <span>Review</span>
+                <strong>Required before production</strong>
+            </div>
+            <div class="status-badge status-ready">
+                <span>Usage</span>
+                <strong>Decision-support signal</strong>
+            </div>
+            <div class="subtle">
+                Very high validation results should be reviewed for possible data leakage,
+                small validation split, class imbalance, or overfitting before production use.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    if clean_classes:
+        with st.expander("Supported role labels", expanded=False):
+            st.caption(", ".join(clean_classes))
 
     st.markdown("---")
     st.markdown("### Workflow Guide")
@@ -2357,17 +2385,15 @@ with st.sidebar:
 
     version_info = get_version_info()
     st.markdown("---")
-    with st.expander("App Version", expanded=False):
+    with st.expander("Developer Notes", expanded=False):
+        st.markdown("**Deployment metadata**")
         st.markdown(f"**Version:** {version_info['app_version']}")
         st.markdown(f"**Stage:** {version_info['app_stage']}")
         st.markdown(f"**Build:** {version_info['build_label']}")
         st.markdown(f"**Environment:** {version_info['deployment_env']}")
         st.markdown(f"**Git commit:** {version_info['git_commit']}")
-
-    if version_info["deployment_env"].lower() == "local":
-        with st.expander("Developer run command", expanded=False):
-            st.markdown("**Developer Run Command**")
-            st.code("streamlit run app.py --server.fileWatcherType none", language="bash")
+        st.markdown("**Local run command**")
+        st.code("streamlit run app.py --server.fileWatcherType none", language="bash")
 
 primary_analysis_badge = (
     "Local workflow + API snapshot"
