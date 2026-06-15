@@ -376,27 +376,33 @@ def apply_global_styles() -> None:
             line-height: 1.65;
         }
 
-        [data-testid="stFileUploader"] {
-            background: rgba(15,23,42,0.58);
-            border: 1px solid rgba(148,163,184,0.16);
+        div[data-testid="stFileUploader"],
+        section[data-testid="stSidebar"] div[data-testid="stFileUploader"] {
+            background: rgba(15,23,42,0.74) !important;
+            border: 1px solid rgba(148,163,184,0.22) !important;
             border-radius: 14px;
             padding: 0.7rem;
+            color: #e5e7eb !important;
         }
 
         div[data-testid="stFileUploaderDropzone"] {
-            background: linear-gradient(145deg, rgba(15,23,42,0.94), rgba(30,41,59,0.78)) !important;
+            background: linear-gradient(145deg, rgba(2,6,23,0.96), rgba(15,23,42,0.92)) !important;
             border: 1px dashed rgba(96,165,250,0.46) !important;
             border-radius: 12px !important;
             color: #e5e7eb !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
             transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
         }
 
         div[data-testid="stFileUploaderDropzone"]:hover {
-            background: linear-gradient(145deg, rgba(30,41,59,0.96), rgba(30,58,95,0.78)) !important;
+            background: linear-gradient(145deg, rgba(15,23,42,0.98), rgba(30,58,95,0.82)) !important;
             border-color: rgba(103,232,249,0.72) !important;
             box-shadow: 0 10px 28px rgba(2,132,199,0.12);
         }
 
+        div[data-testid="stFileUploader"] label,
+        div[data-testid="stFileUploader"] p,
+        div[data-testid="stFileUploader"] span,
         div[data-testid="stFileUploaderDropzone"] span,
         div[data-testid="stFileUploaderDropzone"] small,
         div[data-testid="stFileUploaderDropzone"] svg {
@@ -404,35 +410,57 @@ def apply_global_styles() -> None:
             fill: currentColor !important;
         }
 
-        div[data-testid="stFileUploaderDropzone"] button {
+        div[data-testid="stFileUploaderDropzone"] button,
+        div[data-testid="stFileUploaderDeleteBtn"] button {
             background: rgba(37,99,235,0.22) !important;
             border: 1px solid rgba(96,165,250,0.5) !important;
             color: #eff6ff !important;
         }
 
-        div[data-testid="stFileUploaderDropzone"] button:hover {
+        div[data-testid="stFileUploaderDropzone"] button:hover,
+        div[data-testid="stFileUploaderDeleteBtn"] button:hover {
             background: rgba(37,99,235,0.34) !important;
             border-color: rgba(125,211,252,0.72) !important;
         }
 
+        div[data-testid="stFileUploaderFile"] {
+            background: rgba(30,41,59,0.82) !important;
+            border: 1px solid rgba(148,163,184,0.24) !important;
+            border-radius: 10px !important;
+            color: #e5e7eb !important;
+        }
+
+        div[data-testid="stFileUploaderFile"] span,
+        div[data-testid="stFileUploaderFile"] small,
+        div[data-testid="stFileUploaderFile"] svg {
+            color: #e5e7eb !important;
+            fill: currentColor !important;
+        }
+
+        textarea,
+        input,
         [data-testid="stTextArea"] textarea,
         .stTextArea textarea,
         .stTextInput input,
         div[data-baseweb="textarea"] textarea,
         div[data-baseweb="input"] input {
-            background: rgba(15,23,42,0.68) !important;
-            color: #f8fafc !important;
-            border: 1px solid rgba(148,163,184,0.2) !important;
+            background-color: rgba(2,6,23,0.92) !important;
+            color: #e5e7eb !important;
+            border: 1px solid rgba(148,163,184,0.28) !important;
             border-radius: 12px !important;
             caret-color: #67e8f9 !important;
+            box-shadow: none !important;
         }
 
         div[data-baseweb="textarea"],
         div[data-baseweb="input"] {
-            background: rgba(15,23,42,0.68) !important;
+            background-color: rgba(2,6,23,0.92) !important;
+            border: 1px solid rgba(148,163,184,0.18) !important;
             border-radius: 12px !important;
         }
 
+        textarea:hover,
+        input:hover,
         [data-testid="stTextArea"] textarea:focus,
         .stTextInput input:focus,
         div[data-baseweb="textarea"] textarea:focus,
@@ -448,6 +476,8 @@ def apply_global_styles() -> None:
             opacity: 1 !important;
         }
 
+        button,
+        div[data-testid="stButton"] button,
         .stButton > button,
         .stDownloadButton > button,
         button[kind="secondary"] {
@@ -457,6 +487,8 @@ def apply_global_styles() -> None:
             border-radius: 10px !important;
         }
 
+        button:hover,
+        div[data-testid="stButton"] button:hover,
         .stButton > button:hover,
         .stDownloadButton > button:hover,
         button[kind="secondary"]:hover {
@@ -465,12 +497,15 @@ def apply_global_styles() -> None:
             color: #ffffff !important;
         }
 
+        div[data-testid="stButton"] button[kind="primary"],
         .stButton > button[kind="primary"] {
             background: linear-gradient(135deg, #2563eb, #0f766e) !important;
             border-color: rgba(125,211,252,0.5) !important;
             color: #ffffff !important;
         }
 
+        button:disabled,
+        div[data-testid="stButton"] button:disabled,
         .stButton > button:disabled,
         .stDownloadButton > button:disabled {
             background: rgba(30,41,59,0.48) !important;
@@ -506,15 +541,37 @@ def apply_global_styles() -> None:
             background: rgba(37,99,235,0.24) !important;
         }
 
-        div[data-testid="stExpander"] {
-            background: rgba(15,23,42,0.45);
-            border: 1px solid rgba(148,163,184,0.15);
-            border-radius: 12px;
+        div[data-testid="stExpander"],
+        details {
+            background: rgba(15,23,42,0.72) !important;
+            border: 1px solid rgba(148,163,184,0.22) !important;
+            border-radius: 12px !important;
+            color: #e5e7eb !important;
+            overflow: hidden;
+        }
+
+        div[data-testid="stExpander"] summary,
+        details summary {
+            background: rgba(15,23,42,0.82) !important;
+            color: #e5e7eb !important;
+            border-radius: 12px !important;
+        }
+
+        div[data-testid="stExpander"] summary:hover,
+        details summary:hover {
+            background: rgba(30,41,59,0.92) !important;
+        }
+
+        div[data-testid="stExpander"] summary span,
+        details summary span,
+        div[data-testid="stExpander"] p,
+        div[data-testid="stExpander"] span {
+            color: #e5e7eb !important;
         }
 
         section[data-testid="stSidebar"] div[data-testid="stExpander"] {
-            background: rgba(15,23,42,0.68);
-            border-color: rgba(148,163,184,0.22);
+            background: rgba(15,23,42,0.78) !important;
+            border-color: rgba(148,163,184,0.24) !important;
         }
 
         section[data-testid="stSidebar"] div[data-testid="stExpander"] summary,
@@ -556,10 +613,62 @@ def apply_global_styles() -> None:
             overflow-wrap: anywhere;
         }
 
-        [data-testid="stDataFrame"] {
-            border: 1px solid rgba(148,163,184,0.14);
-            border-radius: 12px;
+        div[data-testid="stDataFrame"],
+        div[data-testid="stTable"] {
+            background: rgba(15,23,42,0.78) !important;
+            border: 1px solid rgba(148,163,184,0.22) !important;
+            border-radius: 12px !important;
             overflow: hidden;
+            color: #e5e7eb !important;
+        }
+
+        div[data-testid="stDataFrame"] div,
+        div[data-testid="stTable"] div,
+        div[data-testid="stDataFrame"] span,
+        div[data-testid="stTable"] span {
+            color: #e5e7eb !important;
+        }
+
+        div[data-testid="stDataFrame"] [role="grid"],
+        div[data-testid="stDataFrame"] [role="row"],
+        div[data-testid="stDataFrame"] [role="columnheader"],
+        div[data-testid="stDataFrame"] [role="gridcell"] {
+            background-color: rgba(15,23,42,0.88) !important;
+            color: #e5e7eb !important;
+            border-color: rgba(148,163,184,0.16) !important;
+        }
+
+        table {
+            width: 100%;
+            background: rgba(15,23,42,0.86) !important;
+            color: #e5e7eb !important;
+            border-collapse: collapse;
+        }
+
+        thead,
+        thead tr,
+        th {
+            background: rgba(30,41,59,0.96) !important;
+            color: #f8fafc !important;
+            border-color: rgba(148,163,184,0.22) !important;
+        }
+
+        tbody,
+        tbody tr,
+        td {
+            background: rgba(15,23,42,0.86) !important;
+            color: #e5e7eb !important;
+            border-color: rgba(148,163,184,0.16) !important;
+        }
+
+        tbody tr:nth-child(even),
+        tbody tr:nth-child(even) td {
+            background: rgba(30,41,59,0.62) !important;
+        }
+
+        th,
+        td {
+            padding: 0.55rem 0.7rem !important;
         }
 
         hr {
