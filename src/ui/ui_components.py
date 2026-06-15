@@ -167,7 +167,7 @@ def render_version_info(version_info: dict) -> None:
     ]
     row_markup = "".join(
         '<div class="version-row">'
-        f'<strong class="version-label">{_safe_text(label)}:</strong>'
+        f'<span class="version-label">{_safe_text(label)}</span>'
         f'<span class="version-value">{_safe_text(value)}</span>'
         "</div>"
         for label, value in rows
