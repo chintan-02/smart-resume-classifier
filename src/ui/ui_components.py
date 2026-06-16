@@ -161,7 +161,6 @@ def render_version_info(version_info: dict) -> None:
     rows = [
         ("Version", version_info.get("app_version")),
         ("Stage", version_info.get("app_stage")),
-        ("Build", version_info.get("build_label")),
         ("Environment", version_info.get("deployment_env")),
         ("Git commit", version_info.get("git_commit")),
     ]
