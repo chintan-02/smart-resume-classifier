@@ -71,13 +71,11 @@ from src.ui.ui_components import (
     render_disclaimer_box,
     render_empty_state,
     render_feature_placeholder_card,
-    render_key_value_card,
     render_navigation_section_title,
     render_page_header,
     render_metric_card,
     render_score_summary,
     render_section_title,
-    render_summary_list_card,
     render_workflow_status,
 )
 from src.ui.ui_styles import apply_global_styles
@@ -689,8 +687,7 @@ def render_candidate_fit_section(candidate_fit_result: dict, role_profile_summar
     if component_scores:
         component_df = pd.DataFrame(component_scores)
         component_df["weight"] = component_df["weight"].apply(lambda value: f"{value:.0%}")
-        with st.expander("Technical details — component score breakdown", expanded=False):
-            st.dataframe(component_df, width="stretch", hide_index=True)
+        st.dataframe(component_df, width="stretch", hide_index=True)
 
     strengths_col, risks_col = st.columns(2, gap="large")
     with strengths_col:
@@ -1278,16 +1275,17 @@ def render_sentence_quality_section(sentence_quality_result: dict) -> None:
                 st.markdown(f"- {reason}")
 
             signals = item.get("signals", {})
-            signal_rows = [
-                ("Generic phrases", ", ".join(map(str, signals.get("generic_phrases", []))) or "None"),
-                ("Weak phrases", ", ".join(map(str, signals.get("weak_phrases", []))) or "None"),
-                ("Vague phrases", ", ".join(map(str, signals.get("vague_phrases", []))) or "None"),
-                ("Has metric", "Yes" if signals.get("has_metric", False) else "No"),
-                ("Has tool or skill", "Yes" if signals.get("has_tool_or_skill", False) else "No"),
-                ("Has action verb", "Yes" if signals.get("has_action_verb", False) else "No"),
-            ]
-            with st.expander("Technical details — raw writing signals", expanded=False):
-                render_key_value_card("Writing Signals", signal_rows)
+            st.markdown("##### Signals")
+            st.write(
+                {
+                    "generic_phrases": signals.get("generic_phrases", []),
+                    "weak_phrases": signals.get("weak_phrases", []),
+                    "vague_phrases": signals.get("vague_phrases", []),
+                    "has_metric": signals.get("has_metric", False),
+                    "has_tool_or_skill": signals.get("has_tool_or_skill", False),
+                    "has_action_verb": signals.get("has_action_verb", False),
+                }
+            )
 
 
 def render_structure_advisor(advice: dict) -> None:
@@ -1387,8 +1385,8 @@ def render_skill_taxonomy_breakdown(taxonomy_result: dict) -> None:
     render_alert_banner(summary.get("top_strength_message", ""), "info")
     render_alert_banner(summary.get("top_gap_message", ""), "warning")
 
-    with st.expander("Technical details — category summary table", expanded=False):
-        st.dataframe(pd.DataFrame(category_summary), width="stretch", hide_index=True)
+    st.markdown("##### Category summary")
+    st.dataframe(pd.DataFrame(category_summary), width="stretch", hide_index=True)
 
     categorized_cols = st.columns(3, gap="large")
     categorized_groups = [
@@ -1818,16 +1816,15 @@ def render_model_transparency_section(prediction_explanation, top_predictions, m
     if not top_predictions.empty:
         chart_df = top_predictions.set_index("Role")
         st.bar_chart(chart_df["Confidence %"])
-        with st.expander("Technical details — prediction probability table", expanded=False):
-            st.dataframe(top_predictions, width="stretch", hide_index=True)
+        st.dataframe(top_predictions, width="stretch", hide_index=True)
     else:
         st.write("Probability output is not available for this classifier.")
 
-    with st.expander("Technical details — stored evaluation metadata", expanded=False):
-        if metrics:
-            st.json({"accuracy": metrics.get("accuracy"), "available_roles": clean_classes})
-        else:
-            st.info("No metrics metadata file found.")
+    st.markdown("##### Stored evaluation metadata")
+    if metrics:
+        st.json({"accuracy": metrics.get("accuracy"), "available_roles": clean_classes})
+    else:
+        st.info("No metrics metadata file found.")
 
     render_model_registry_section(metrics)
     render_experiment_tracking_section()
@@ -1842,8 +1839,7 @@ def render_model_transparency_section(prediction_explanation, top_predictions, m
             }
         )
         st.bar_chart(analytics_df.set_index("Metric"))
-        with st.expander("Technical details — match analytics table", expanded=False):
-            st.dataframe(analytics_df, width="stretch", hide_index=True)
+        st.dataframe(analytics_df, width="stretch", hide_index=True)
 
 
 def render_privacy_responsible_ai_section(privacy_mode: bool) -> None:
@@ -1919,6 +1915,7 @@ def render_privacy_responsible_ai_section(privacy_mode: bool) -> None:
         with column:
             render_metric_card(card.get("title", ""), card.get("value", ""), card.get("helper_text", ""))
 
+    st.markdown("##### Synthetic aggregate monitoring table")
     fairness_df = pd.DataFrame(synthetic_rows).rename(
         columns={
             "group": "Group",
@@ -1930,14 +1927,13 @@ def render_privacy_responsible_ai_section(privacy_mode: bool) -> None:
             "false_negative_proxy": "False Negative Proxy",
         }
     )
+    st.dataframe(fairness_df, width="stretch", hide_index=True)
 
     chart_df = fairness_df.set_index("Group")[["Review Rate"]]
     st.bar_chart(chart_df)
     st.caption(
         "Review Rate chart uses synthetic/demo data only. It is a monitoring concept and is not connected to real candidate records."
     )
-    with st.expander("Technical details — synthetic monitoring table", expanded=False):
-        st.dataframe(fairness_df, width="stretch", hide_index=True)
 
     notes_col, checklist_col = st.columns(2, gap="large")
     with notes_col:
@@ -1978,16 +1974,6 @@ def render_logging_monitoring_section() -> None:
         "ResumeIQ logs operational metadata only. Full resume text, full job descriptions, and raw PII are not intentionally logged.",
         "info",
     )
-    render_summary_list_card(
-        "Monitoring Foundation",
-        [
-            "Local structured logging active",
-            "Request IDs enabled",
-            "API latency headers enabled",
-            "PII-safe logging policy",
-            "External monitoring planned",
-        ],
-    )
     render_workflow_status(
         [
             {
@@ -2023,8 +2009,7 @@ def render_logging_monitoring_section() -> None:
         ]
     )
     checklist_df = pd.DataFrame(get_monitoring_checklist())
-    with st.expander("Technical details — monitoring checklist", expanded=False):
-        st.dataframe(checklist_df, width="stretch", hide_index=True)
+    st.dataframe(checklist_df, width="stretch", hide_index=True)
     summary = build_monitoring_summary(
         api_status="available when FastAPI is running",
         db_status="local SQLite foundation",
@@ -2074,35 +2059,24 @@ def render_job_application_assistant_placeholder(
     cols[2].metric("Consent Required", "Yes")
     cols[3].metric("Provider", settings.genai_provider or "none")
 
-    configured_status = {
-        "openai_api_key_configured": settings.openai_api_key_configured,
-        "anthropic_api_key_configured": settings.anthropic_api_key_configured,
-        "gemini_api_key_configured": settings.gemini_api_key_configured,
-    }
-    render_key_value_card(
-        "GenAI Safety Status",
-        [
-            ("Mode", "Local only"),
-            ("External GenAI", "Enabled" if readiness.get("external_genai_enabled") else "Disabled"),
-            ("Consent", "Required"),
-            ("Provider", settings.genai_provider or "none"),
-        ],
-        "Future GenAI features remain privacy-gated and require explicit consent.",
-    )
-
-    with st.expander("Technical details — planned features", expanded=False):
+    with st.expander("Planned GenAI features", expanded=False):
         features_df = pd.DataFrame(planning_data.get("supported_features", []))
         st.dataframe(features_df, width="stretch", hide_index=True)
 
-    with st.expander("Technical details — provider placeholders", expanded=False):
+    with st.expander("Provider placeholders", expanded=False):
         providers_df = pd.DataFrame(planning_data.get("provider_placeholders", []))
         st.dataframe(providers_df, width="stretch", hide_index=True)
-
-    with st.expander("Technical details — safety policy", expanded=False):
+        configured_status = {
+            "openai_api_key_configured": settings.openai_api_key_configured,
+            "anthropic_api_key_configured": settings.anthropic_api_key_configured,
+            "gemini_api_key_configured": settings.gemini_api_key_configured,
+        }
         st.json(configured_status)
+
+    with st.expander("Safety policy", expanded=False):
         st.json(planning_data.get("safety_policy", {}))
 
-    with st.expander("Technical details — future prompt templates", expanded=False):
+    with st.expander("Future prompt templates", expanded=False):
         for template_name, template_text in planning_data.get("future_prompt_templates", {}).items():
             st.markdown(f"**{template_name}**")
             st.code(template_text, language="text")

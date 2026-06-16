@@ -83,42 +83,6 @@ def render_metric_card(title, value, helper_text=None) -> None:
     st.markdown(card_markup, unsafe_allow_html=True)
 
 
-def render_key_value_card(title: str, rows: list[tuple[str, str]], helper_text: str | None = None) -> None:
-    row_markup = "".join(
-        '<div class="key-value-row">'
-        f'<span class="key-value-label">{_safe_text(label)}</span>'
-        f'<span class="key-value-value">{_safe_text(value)}</span>'
-        "</div>"
-        for label, value in rows
-    )
-    helper_markup = f'<div class="metric-subtext">{_safe_text(helper_text)}</div>' if helper_text else ""
-    st.markdown(
-        '<div class="key-value-card">'
-        f'<div class="key-value-title">{_safe_text(title)}</div>'
-        f"{row_markup}"
-        f"{helper_markup}"
-        "</div>",
-        unsafe_allow_html=True,
-    )
-
-
-def render_summary_list_card(title: str, items: list[str], helper_text: str | None = None) -> None:
-    clean_items = [str(item).strip() for item in (items or []) if str(item).strip()]
-    item_markup = "".join(
-        f'<div class="summary-list-item">{_safe_text(item)}</div>'
-        for item in clean_items
-    )
-    helper_markup = f'<div class="metric-subtext">{_safe_text(helper_text)}</div>' if helper_text else ""
-    st.markdown(
-        '<div class="summary-list-card">'
-        f'<div class="summary-list-title">{_safe_text(title)}</div>'
-        f"{item_markup}"
-        f"{helper_markup}"
-        "</div>",
-        unsafe_allow_html=True,
-    )
-
-
 def render_alert_banner(message, tone="info") -> None:
     tone_class = {
         "info": "alert-info",
