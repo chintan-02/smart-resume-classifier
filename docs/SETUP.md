@@ -147,16 +147,33 @@ CI also validates database initialization, FastAPI import, Docker Compose config
 
 ## Deployment Version Check
 
-ResumeIQ exposes lightweight build metadata so local and deployed environments can be compared:
+ResumeIQ exposes lightweight deployment metadata so local and deployed environments can be compared:
 
-- The Streamlit sidebar includes an **App Version** expander with the version, build label, environment, and Git commit label.
-- FastAPI exposes the same metadata at `GET /version`.
+- The Streamlit sidebar includes collapsed **Developer Notes** with version, stage, environment, and commit metadata.
+- FastAPI exposes the same non-secret metadata at `GET /version`.
 - Azure may show an older UI when its deployment workflow has not run after recent commits.
 - Set `RESUMEIQ_GIT_COMMIT` in the deployment environment to the deployed commit SHA or another traceable commit label.
 - `RESUMEIQ_APP_ENV` identifies the runtime environment, such as `local`, `docker`, or `azure`.
 - If the Azure workflow is manual-only, pushing commits to GitHub will not automatically update Azure.
 
 These checks provide deployment visibility only. They do not confirm that Azure is currently deployed.
+
+## Azure Deployment Metadata
+
+Recommended Azure App Service environment variables:
+
+```text
+RESUMEIQ_APP_ENV=azure
+RESUMEIQ_GIT_COMMIT=<short-git-commit>
+PORT=8000
+WEBSITES_PORT=8000
+```
+
+- `RESUMEIQ_APP_ENV` controls whether ResumeIQ reports `local`, `docker`, or `azure`.
+- `RESUMEIQ_GIT_COMMIT` helps confirm which commit is deployed.
+- `PORT` and `WEBSITES_PORT` help Azure route the Streamlit container on port `8000`.
+- Metadata is shown only under collapsed Developer Notes in Streamlit and through FastAPI `GET /version`.
+- Do not store secrets in these metadata variables.
 
 ## Common Troubleshooting
 

@@ -18,6 +18,13 @@ def test_version_endpoint(client):
     assert response.status_code == 200
     assert data.get("app_name") == "ResumeIQ"
     assert data.get("app_version")
+    assert data.get("app_stage")
+    assert data.get("deployment_env")
+    assert data.get("git_commit")
+    assert "build_label" not in data
+    assert "secret" not in str(data).lower()
+    assert "api_key" not in str(data).lower()
+    assert "password" not in str(data).lower()
 
 
 def test_ready_reports_version_info(client):

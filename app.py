@@ -2529,13 +2529,16 @@ with st.sidebar:
     )
 
     version_info = get_version_info()
+    display_commit = version_info["git_commit"]
+    if display_commit != "local":
+        display_commit = display_commit[:7]
     st.markdown("---")
     with st.expander("Developer Notes", expanded=False):
         st.markdown("**Deployment metadata**")
         st.markdown(f"**Version:** {version_info['app_version']}")
         st.markdown(f"**Stage:** {version_info['app_stage']}")
         st.markdown(f"**Environment:** {version_info['deployment_env']}")
-        st.markdown(f"**Commit:** {version_info['git_commit']}")
+        st.markdown(f"**Commit:** {display_commit}")
 
 primary_analysis_badge = (
     "Local workflow + API snapshot"

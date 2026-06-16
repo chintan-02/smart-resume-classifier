@@ -25,7 +25,7 @@ curl http://127.0.0.1:8000/version
 curl http://127.0.0.1:8000/ready
 ```
 
-Confirm that `/version` reports ResumeIQ version `0.35.0` and the Step 35A build label.
+Confirm that `/version` reports ResumeIQ version `0.35.0`, stage `portfolio-polish`, environment, and commit metadata. `/ready` should include `version_info: available`.
 
 ## 3. Check local Streamlit
 
@@ -33,15 +33,40 @@ Confirm that `/version` reports ResumeIQ version `0.35.0` and the Step 35A build
 streamlit run app.py --server.fileWatcherType none
 ```
 
-Open the local app and verify that the sidebar contains the **App Version** expander.
+Open the local app and verify that the sidebar contains collapsed **Developer Notes**.
+
+Expected local metadata:
+
+- Environment: `local`
+- Commit: `local`
 
 ## 4. Check the Azure website
 
-Open the configured Azure website URL and check whether the sidebar contains the **App Version** expander. Compare its version, build label, environment, and Git commit label with the local values.
+Set Azure App Service environment variables:
 
-## 5. Interpret a missing version display
+- `RESUMEIQ_APP_ENV=azure`
+- `RESUMEIQ_GIT_COMMIT=<latest-short-commit>`
+- `PORT=8000`
+- `WEBSITES_PORT=8000`
 
-If Azure does not show the **App Version** expander, Azure is running a build older than Step 35A.
+Restart Azure App Service.
+
+Open the configured Azure website URL and check the sidebar **Developer Notes** expander. Compare its version, stage, environment, and commit with the intended GitHub commit.
+
+Expected Azure metadata:
+
+- Environment: `azure`
+- Commit: latest short commit
+
+If the deployed backend route is available, also check:
+
+```bash
+curl https://<azure-app-url>/version
+```
+
+## 5. Interpret missing metadata
+
+If Azure does not show **Developer Notes** or `/version` does not include the latest environment/commit metadata, Azure may be running an older deployment or missing environment variables.
 
 ## 6. Check GitHub Actions
 
