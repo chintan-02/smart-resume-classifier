@@ -5,13 +5,11 @@ from collections import Counter
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
+from time import perf_counter
 
 import pandas as pd
 import streamlit as st
 
-from experiment_tracking.mlflow_tracker import build_experiment_tracking_summary
-from model_registry.model_card import build_baseline_model_card, get_model_card_sections
-from model_registry.registry import DEFAULT_REGISTRY_PATH, get_latest_model_record
 from src.api_client import (
     analyze_resume_via_api,
     ask_copilot_via_api,
@@ -40,39 +38,13 @@ from src.batch_ranker import (
     rank_batch_results,
 )
 from src.candidate_fit_scorer import build_candidate_fit_score, get_candidate_fit_summary_cards
-from src.fairness_dashboard import (
-    calculate_fairness_summary,
-    get_fairness_intro,
-    get_fairness_limitations,
-    get_fairness_metric_cards,
-    get_fairness_risk_notes,
-    get_responsible_ai_checklist,
-    get_synthetic_fairness_data,
-)
-from src.genai_planning import (
-    build_genai_readiness_summary,
-    get_future_prompt_templates,
-    get_genai_provider_placeholders,
-    get_genai_safety_policy,
-    get_supported_future_genai_features,
-)
-from src.genai_prompt_builder import build_prompt_preview, get_prompt_builder_safety_notes, get_prompt_task_types
 from src.jd_matcher import analyze_job_description_match, get_match_feedback
-from src.monitoring import build_monitoring_summary, get_monitoring_checklist
-from src.prediction_service import get_top_predictions as get_model_top_predictions
-from src.prediction_service import load_model_artifacts, predict_resume_role
-from src.prediction_explainer import build_prediction_explanation, get_prediction_explanation_cards
+from src.monitoring import get_logger, log_event
 from src.preprocessing import preprocess_resume_text
 from src.privacy_tools import (
     anonymize_batch_rows,
     anonymize_review_records,
-    get_privacy_mode_message,
     mask_pii,
-)
-from src.rag_copilot import (
-    ask_recruiter_copilot,
-    get_copilot_safety_notes,
-    get_sample_copilot_questions,
 )
 from src.recruiter_workflow import (
     build_review_records,
@@ -84,11 +56,9 @@ from src.recruiter_workflow import (
     make_review_key,
 )
 from src.report_builder import build_resume_improvement_report, get_report_summary_cards
-from src.resume_parser import is_supported_file, parse_resume
 from src.resume_structure_advisor import build_structure_advice, get_structure_summary_cards
 from src.rewrite_suggestions import generate_rewrite_suggestions, get_rewrite_summary
 from src.role_profiles import infer_target_role, get_role_profile, get_role_profile_summary
-from src.semantic_matcher import build_semantic_match_result, get_semantic_summary_cards
 from src.sentence_quality import detect_ai_like_sentences
 from src.settings import get_runtime_summary, get_settings
 from src.skill_taxonomy import compare_skill_categories, get_skill_taxonomy_summary
@@ -110,14 +80,10 @@ from src.ui.ui_components import (
 )
 from src.ui.ui_styles import apply_global_styles
 from src.version import get_version_info
-from database.db import get_db_session
-from database.repositories import (
-    create_analysis_run,
-    create_audit_log,
-    create_batch_ranking_run,
-    create_candidate_review_record,
-    list_recent_analysis_runs,
-)
+
+
+APP_START_TIME = perf_counter()
+logger = get_logger(__name__)
 
 st.set_page_config(
     page_title=APP_TITLE,
@@ -133,13 +99,43 @@ BACKEND_STATUS_TTL_SECONDS = 15
 
 @st.cache_resource
 def load_model():
+    start_time = perf_counter()
+    from src.prediction_service import load_model_artifacts
+
     model, vectorizer = load_model_artifacts()
+    log_event(
+        logger,
+        "streamlit_model_loaded",
+        "Streamlit model resources loaded.",
+        {"latency_ms": round((perf_counter() - start_time) * 1000, 2)},
+    )
     return model, vectorizer
 
 
 @st.cache_data
 def get_skills():
-    return load_skills(SKILLS_PATH)
+    start_time = perf_counter()
+    skills = load_skills(SKILLS_PATH)
+    log_event(
+        logger,
+        "streamlit_skills_loaded",
+        "Streamlit skills list loaded.",
+        {"latency_ms": round((perf_counter() - start_time) * 1000, 2)},
+    )
+    return skills
+
+
+def load_analysis_resources() -> bool:
+    global model, vectorizer, skills_list
+    try:
+        model, vectorizer = load_model()
+        skills_list = get_skills()
+        return True
+    except FileNotFoundError as exc:
+        st.error(f"Required model or skills artifact is missing. Please run `python train.py` first. Details: {exc}")
+    except Exception as exc:
+        st.error(f"Could not load analysis resources. Details: {exc}")
+    return False
 
 
 @st.cache_data
@@ -147,6 +143,33 @@ def get_metrics():
     if METRICS_PATH.exists():
         return json.loads(METRICS_PATH.read_text(encoding="utf-8"))
     return {}
+
+
+@st.cache_data
+def get_genai_planning_data() -> dict:
+    start_time = perf_counter()
+    from src.genai_planning import (
+        build_genai_readiness_summary,
+        get_future_prompt_templates,
+        get_genai_provider_placeholders,
+        get_genai_safety_policy,
+        get_supported_future_genai_features,
+    )
+
+    planning_data = {
+        "readiness": build_genai_readiness_summary(),
+        "supported_features": get_supported_future_genai_features(),
+        "provider_placeholders": get_genai_provider_placeholders(),
+        "safety_policy": get_genai_safety_policy(),
+        "future_prompt_templates": get_future_prompt_templates(),
+    }
+    log_event(
+        logger,
+        "optional_module_loaded",
+        "GenAI planning helpers loaded.",
+        {"source": "genai_planning", "latency_ms": round((perf_counter() - start_time) * 1000, 2)},
+    )
+    return planning_data
 
 
 @st.cache_data
@@ -160,9 +183,17 @@ def get_model_card_payload():
     return {}
 
 
+def get_default_registry_path():
+    from model_registry.registry import DEFAULT_REGISTRY_PATH
+
+    return DEFAULT_REGISTRY_PATH
+
+
 @st.cache_data
 def get_latest_registry_record():
-    return get_latest_model_record(DEFAULT_REGISTRY_PATH)
+    from model_registry.registry import get_latest_model_record
+
+    return get_latest_model_record(get_default_registry_path())
 
 
 @st.cache_data
@@ -187,7 +218,53 @@ def backend_status_is_stale() -> bool:
 
 
 def get_top_predictions(text: str, top_n: int = 5) -> pd.DataFrame:
+    from src.prediction_service import get_top_predictions as get_model_top_predictions
+
     return get_model_top_predictions(text, model, vectorizer, top_n)
+
+
+def predict_resume_role_with_loaded_model(resume_clean: str) -> dict:
+    from src.prediction_service import predict_resume_role
+
+    return predict_resume_role(resume_clean, model, vectorizer)
+
+
+def is_supported_resume_file(uploaded_file) -> bool:
+    from src.resume_parser import is_supported_file
+
+    return is_supported_file(uploaded_file)
+
+
+def parse_uploaded_resume(uploaded_file) -> dict:
+    start_time = perf_counter()
+    from src.resume_parser import parse_resume
+
+    parser_result = parse_resume(uploaded_file)
+    log_event(
+        logger,
+        "streamlit_resume_parsed",
+        "Resume file parsed.",
+        {
+            "source": "resume_parser",
+            "success": True,
+            "latency_ms": round((perf_counter() - start_time) * 1000, 2),
+        },
+    )
+    return parser_result
+
+
+def build_semantic_result(resume_text: str, job_description: str) -> dict:
+    start_time = perf_counter()
+    from src.semantic_matcher import build_semantic_match_result
+
+    result = build_semantic_match_result(resume_text, job_description)
+    log_event(
+        logger,
+        "optional_module_loaded",
+        "Semantic matching helper used.",
+        {"source": "semantic_matcher", "latency_ms": round((perf_counter() - start_time) * 1000, 2)},
+    )
+    return result
 
 
 class StoredUploadedFile:
@@ -428,6 +505,9 @@ def _safe_history_value(value):
 
 def fetch_recent_analysis_history(limit: int = 5) -> list[dict]:
     try:
+        from database.db import get_db_session
+        from database.repositories import list_recent_analysis_runs
+
         with get_db_session() as session:
             rows = list_recent_analysis_runs(session, limit=limit)
             return [
@@ -457,6 +537,9 @@ def render_recent_analysis_history() -> None:
 
 def save_streamlit_analysis_summary(data: dict) -> bool:
     try:
+        from database.db import get_db_session
+        from database.repositories import create_analysis_run, create_audit_log
+
         with get_db_session() as session:
             create_analysis_run(session, data)
             create_audit_log(
@@ -477,6 +560,13 @@ def save_streamlit_batch_summary(
     privacy_mode: bool,
 ) -> bool:
     try:
+        from database.db import get_db_session
+        from database.repositories import (
+            create_audit_log,
+            create_batch_ranking_run,
+            create_candidate_review_record,
+        )
+
         summary = get_batch_summary(ranked_rows)
         with get_db_session() as session:
             batch_run = create_batch_ranking_run(
@@ -727,6 +817,20 @@ def render_recruiter_copilot_section(
     backend_available: bool = False,
     api_base_url: str | None = None,
 ) -> None:
+    start_time = perf_counter()
+    from src.rag_copilot import (
+        ask_recruiter_copilot,
+        get_copilot_safety_notes,
+        get_sample_copilot_questions,
+    )
+
+    log_event(
+        logger,
+        "optional_module_loaded",
+        "Recruiter copilot helpers loaded.",
+        {"source": "rag_copilot", "latency_ms": round((perf_counter() - start_time) * 1000, 2)},
+    )
+
     render_section_title(
         "Recruiter Copilot — Local Evidence Search",
         "Ask recruiter-style questions and retrieve supporting evidence from the current resume and job description.",
@@ -846,6 +950,8 @@ def render_recruiter_copilot_section(
 
 
 def render_prediction_explanation_section(prediction_explanation: dict) -> None:
+    from src.prediction_explainer import get_prediction_explanation_cards
+
     render_section_title(
         "Local Baseline Explanation",
         "Terms that may have influenced the current classifier output.",
@@ -975,6 +1081,8 @@ def render_batch_ranking_section(
     if run_batch:
         if not batch_files:
             render_alert_banner("Upload at least one batch resume before running batch ranking.", "warning")
+        elif not load_analysis_resources():
+            render_alert_banner("Analysis resources are unavailable. Run python train.py, then restart the app.", "warning")
         else:
             rows = []
             progress = st.progress(0, text="Preparing batch ranking...")
@@ -1301,6 +1409,8 @@ def render_skill_taxonomy_breakdown(taxonomy_result: dict) -> None:
 
 
 def render_semantic_match_section(semantic_result: dict, privacy_mode: bool = False, candidate_name: str = "") -> None:
+    from src.semantic_matcher import get_semantic_summary_cards
+
     render_section_title(
         "Semantic JD-Resume Match",
         "Meaning-based similarity between the resume and target job description.",
@@ -1582,9 +1692,11 @@ def format_registry_metric(value) -> str:
 
 
 def render_model_registry_section(metrics) -> None:
+    from model_registry.model_card import build_baseline_model_card, get_model_card_sections
+
     st.markdown("##### Model Registry & Model Card")
 
-    if not Path(DEFAULT_REGISTRY_PATH).exists():
+    if not Path(get_default_registry_path()).exists():
         st.info(
             "Model registry has not been initialized yet. Run python scripts/register_baseline_model.py to create local metadata."
         )
@@ -1636,7 +1748,16 @@ def render_model_registry_section(metrics) -> None:
 
 
 def render_experiment_tracking_section() -> None:
+    start_time = perf_counter()
+    from experiment_tracking.mlflow_tracker import build_experiment_tracking_summary
+
     summary = build_experiment_tracking_summary()
+    log_event(
+        logger,
+        "optional_module_loaded",
+        "Experiment tracking helper loaded.",
+        {"source": "mlflow_tracker", "latency_ms": round((perf_counter() - start_time) * 1000, 2)},
+    )
     st.markdown("##### Experiment Tracking")
 
     cols = st.columns(5)
@@ -1722,6 +1843,24 @@ def render_model_transparency_section(prediction_explanation, top_predictions, m
 
 
 def render_privacy_responsible_ai_section(privacy_mode: bool) -> None:
+    start_time = perf_counter()
+    from src.fairness_dashboard import (
+        calculate_fairness_summary,
+        get_fairness_intro,
+        get_fairness_limitations,
+        get_fairness_metric_cards,
+        get_fairness_risk_notes,
+        get_responsible_ai_checklist,
+        get_synthetic_fairness_data,
+    )
+
+    log_event(
+        logger,
+        "optional_module_loaded",
+        "Responsible AI demo helpers loaded.",
+        {"source": "fairness_dashboard", "latency_ms": round((perf_counter() - start_time) * 1000, 2)},
+    )
+
     render_navigation_section_title(
         "Privacy & Responsible AI",
         "Privacy controls, human-review boundaries, and responsible AI safeguards.",
@@ -1825,6 +1964,8 @@ def render_privacy_responsible_ai_section(privacy_mode: bool) -> None:
 
 
 def render_logging_monitoring_section() -> None:
+    from src.monitoring import build_monitoring_summary, get_monitoring_checklist
+
     render_section_title(
         "Logging & Monitoring",
         "Local observability foundations for safe backend and workflow diagnostics.",
@@ -1904,7 +2045,8 @@ def render_job_application_assistant_placeholder(
         "Future GenAI Assistant Planning",
         "Consent, privacy, and provider-readiness planning for future optional GenAI features.",
     )
-    readiness = build_genai_readiness_summary()
+    planning_data = get_genai_planning_data()
+    readiness = planning_data.get("readiness", {})
     settings = get_settings()
     render_alert_banner(
         "ResumeIQ does not currently send resume or job-description content to external AI providers. Future GenAI features will require explicit user consent, PII masking, and safe fallback.",
@@ -1918,11 +2060,11 @@ def render_job_application_assistant_placeholder(
     cols[3].metric("Provider", settings.genai_provider or "none")
 
     with st.expander("Planned GenAI features", expanded=False):
-        features_df = pd.DataFrame(get_supported_future_genai_features())
+        features_df = pd.DataFrame(planning_data.get("supported_features", []))
         st.dataframe(features_df, width="stretch", hide_index=True)
 
     with st.expander("Provider placeholders", expanded=False):
-        providers_df = pd.DataFrame(get_genai_provider_placeholders())
+        providers_df = pd.DataFrame(planning_data.get("provider_placeholders", []))
         st.dataframe(providers_df, width="stretch", hide_index=True)
         configured_status = {
             "openai_api_key_configured": settings.openai_api_key_configured,
@@ -1932,14 +2074,16 @@ def render_job_application_assistant_placeholder(
         st.json(configured_status)
 
     with st.expander("Safety policy", expanded=False):
-        st.json(get_genai_safety_policy())
+        st.json(planning_data.get("safety_policy", {}))
 
     with st.expander("Future prompt templates", expanded=False):
-        for template_name, template_text in get_future_prompt_templates().items():
+        for template_name, template_text in planning_data.get("future_prompt_templates", {}).items():
             st.markdown(f"**{template_name}**")
             st.code(template_text, language="text")
 
     with st.expander("Safe Prompt Builder Preview", expanded=False):
+        from src.genai_prompt_builder import get_prompt_builder_safety_notes, get_prompt_task_types
+
         render_alert_banner(
             "This is a prompt preview only. ResumeIQ is not calling an external GenAI provider.",
             "warning",
@@ -2105,6 +2249,8 @@ def render_job_application_assistant_placeholder(
                     st.info(api_result.get("message", "Backend prompt preview unavailable. Using local fallback."))
                     source_label = "Local fallback"
             if preview is None:
+                from src.genai_prompt_builder import build_prompt_preview
+
                 preview = build_prompt_preview(task_type, **prompt_kwargs)
             st.caption(f"Prompt preview source: {source_label}")
             st.metric("Allowed for external use", "Yes" if preview.get("allowed_for_external_use") else "No")
@@ -2129,7 +2275,7 @@ def summarize_detected_sections(sections: dict) -> dict:
 def analyze_resume_for_batch(uploaded_resume, job_description: str) -> dict:
     filename = getattr(uploaded_resume, "name", "Unknown file")
     try:
-        if not is_supported_file(uploaded_resume):
+        if not is_supported_resume_file(uploaded_resume):
             candidate_name = extract_candidate_name(filename=filename)
             return build_batch_row(
                 filename=filename,
@@ -2141,7 +2287,7 @@ def analyze_resume_for_batch(uploaded_resume, job_description: str) -> dict:
                 },
             )
 
-        parser_result = parse_resume(uploaded_resume)
+        parser_result = parse_uploaded_resume(uploaded_resume)
         resume_text = parser_result.get("text", "")
         resume_clean = preprocess_resume_text(resume_text)
         candidate_name = extract_candidate_name(parser_result=parser_result, filename=filename)
@@ -2157,7 +2303,7 @@ def analyze_resume_for_batch(uploaded_resume, job_description: str) -> dict:
                 },
             )
 
-        prediction_result = predict_resume_role(resume_clean, model, vectorizer)
+        prediction_result = predict_resume_role_with_loaded_model(resume_clean)
         predicted_role = prediction_result.get("role")
         target_role = infer_target_role(predicted_role=predicted_role, job_description=job_description)
         role_profile = get_role_profile(target_role)
@@ -2174,7 +2320,7 @@ def analyze_resume_for_batch(uploaded_resume, job_description: str) -> dict:
             missing_skills=gap.get("missing", []),
             extra_skills=gap.get("extra", []),
         )
-        semantic_result = build_semantic_match_result(resume_text, job_description)
+        semantic_result = build_semantic_result(resume_text, job_description)
         ats_result = calculate_ats_score(
             resume_text=resume_text,
             job_description=job_description,
@@ -2238,26 +2384,18 @@ model = None
 vectorizer = None
 skills_list = []
 
-try:
-    model, vectorizer = load_model()
-except FileNotFoundError as exc:
-    app_ready = False
-    st.error(f"Model artifact is missing. Please run `python train.py` first. Details: {exc}")
-except Exception as exc:
-    app_ready = False
-    st.error(f"Could not load model artifacts. Details: {exc}")
-
-try:
-    skills_list = get_skills()
-except FileNotFoundError as exc:
-    app_ready = False
-    st.error(f"Skills list is missing. Details: {exc}")
-except Exception as exc:
-    app_ready = False
-    st.error(f"Could not load skills list. Details: {exc}")
-
 metrics = get_metrics()
 settings = get_settings()
+
+log_event(
+    logger,
+    "streamlit_startup_ready",
+    "Streamlit app shell initialized.",
+    {
+        "app_env": settings.app_env,
+        "latency_ms": round((perf_counter() - APP_START_TIME) * 1000, 2),
+    },
+)
 
 ensure_batch_file_store()
 
@@ -2560,10 +2698,10 @@ if uploaded_file is None:
         )
 elif not app_ready:
     st.error("The app cannot analyze resumes until the required model and data files are available.")
-elif not is_supported_file(uploaded_file):
+elif not is_supported_resume_file(uploaded_file):
     st.error("Unsupported file type. Please upload a PDF, TXT, or DOCX resume.")
 else:
-    parser_result = parse_resume(uploaded_file)
+    parser_result = parse_uploaded_resume(uploaded_file)
     resume_text = parser_result["text"]
     resume_clean = preprocess_resume_text(resume_text)
     template_detection = parser_result["template_detection"]
@@ -2582,13 +2720,19 @@ else:
         elif template_severity == "partial":
             st.info(template_detection["warning"])
 
-        prediction = predict_resume_role(resume_clean, model, vectorizer)
+        if not load_analysis_resources():
+            st.stop()
+
+        analysis_start_time = perf_counter()
+        prediction = predict_resume_role_with_loaded_model(resume_clean)
         predicted_role = prediction["role"]
         top_predictions = prediction["top_predictions"]
         confidence_display = "N/A"
 
         if not top_predictions.empty:
             confidence_display = f"{top_predictions.iloc[0]['Confidence %']:.2f}%"
+
+        from src.prediction_explainer import build_prediction_explanation
 
         prediction_explanation = build_prediction_explanation(
             resume_text=resume_text,
@@ -2617,7 +2761,7 @@ else:
             missing_skills=gap.get("missing", []),
             extra_skills=gap.get("extra", []),
         )
-        semantic_result = build_semantic_match_result(resume_text, job_description)
+        semantic_result = build_semantic_result(resume_text, job_description)
         ats_result = calculate_ats_score(
             resume_text=resume_text,
             job_description=job_description,
@@ -2662,6 +2806,17 @@ else:
             resume_text=resume_text,
             target_role=target_role,
             role_profile=role_profile,
+        )
+        log_event(
+            logger,
+            "streamlit_analysis_complete",
+            "Streamlit local analysis completed.",
+            {
+                "success": True,
+                "predicted_role": predicted_role,
+                "privacy_mode": privacy_mode,
+                "latency_ms": round((perf_counter() - analysis_start_time) * 1000, 2),
+            },
         )
 
         analysis_save_data = {

@@ -101,6 +101,16 @@ For backend changes, manually run:
 uvicorn backend.main:app --reload --port 8000
 ```
 
+## Azure Startup Performance
+
+Azure App Service may cold start after idle time, so ResumeIQ keeps the first Streamlit page load lightweight.
+
+- Optional ML/NLP helpers are imported only when their sections or actions need them.
+- Streamlit cache is used for stable resources such as model artifacts, skills, and static planning metadata.
+- The initial page can load before the classifier, parser, semantic matcher, MLflow helpers, model registry, RAG copilot, or synthetic fairness demo are needed.
+- First analysis may still take longer than first page load because model artifacts and resume parsing load on demand.
+- If available on the App Service plan, Always On can reduce cold-start delays.
+
 ## Commit Hygiene
 
 - Do not commit generated local databases.
