@@ -2267,18 +2267,19 @@ with st.sidebar:
     privacy_mode = st.toggle(
         "Privacy-safe display mode",
         value=settings.privacy_mode_default,
-        help="Masks common personal identifiers in displayed resume text, batch ranking, recruiter notes, and exports where possible.",
+        help="Masks common identifiers where possible.",
     )
-    st.caption(get_privacy_mode_message(privacy_mode))
+    st.caption(
+        "Privacy mode is on. Common identifiers are masked where possible."
+        if privacy_mode
+        else "Privacy mode is off. Uploaded resume details may be visible."
+    )
 
     st.markdown("---")
     st.markdown("### Backend API")
     api_base_url = get_api_base_url()
-    use_fastapi_backend = st.toggle("Use FastAPI backend when available", value=False)
-    st.caption(f"Backend URL: {api_base_url}")
-    st.caption(
-        "FastAPI is optional. Local Streamlit analysis remains available."
-    )
+    use_fastapi_backend = st.toggle("Use FastAPI backend", value=False)
+    st.caption("FastAPI is optional. Local analysis remains available.")
     check_backend_clicked = st.button("Check Backend Status")
     backend_health = st.session_state.get("backend_health")
     backend_ready = st.session_state.get("backend_ready")
@@ -2291,48 +2292,49 @@ with st.sidebar:
     backend_available = bool(backend_health and backend_health.get("available"))
     last_checked_at = st.session_state.get("backend_last_checked_at")
 
-    if not use_fastapi_backend:
-        st.caption("Backend checks are off. Local Streamlit workflow is active.")
-
-    if backend_health:
-        if backend_available:
-            if use_fastapi_backend:
-                st.success("Backend API is available. Streamlit can use API analysis snapshot.")
-            else:
-                st.success("Backend API is reachable, but API analysis is not enabled.")
-                st.caption("Turn on 'Use FastAPI backend when available' to enable the API snapshot.")
-        else:
-            if use_fastapi_backend:
-                st.info("Backend API is offline. Local Streamlit workflow is active.")
-            else:
-                st.info("Backend API is offline. Local Streamlit workflow is active.")
-        if isinstance(last_checked_at, datetime):
-            st.caption(f"Last checked: {last_checked_at.strftime('%H:%M:%S')}")
-    elif use_fastapi_backend:
-        st.info("Backend API is offline. Local Streamlit workflow is active.")
-
     analysis_mode_slot = st.empty()
     if use_fastapi_backend and backend_available:
-        analysis_mode_slot.caption("Primary analysis: Local workflow + FastAPI snapshot enabled")
+        backend_status_label = "API snapshot enabled"
+        analysis_mode_slot.caption("Primary analysis: Local + API snapshot")
     elif use_fastapi_backend:
-        analysis_mode_slot.caption("Primary analysis: Local workflow fallback")
-    else:
+        backend_status_label = "Backend unavailable"
         analysis_mode_slot.caption("Primary analysis: Local Streamlit workflow")
-    if backend_ready and backend_ready.get("checks"):
-        with st.expander("Backend readiness checks", expanded=False):
+    elif backend_available:
+        backend_status_label = "Backend reachable"
+        analysis_mode_slot.caption("Primary analysis: Local Streamlit workflow")
+    else:
+        backend_status_label = "Local workflow active"
+        analysis_mode_slot.caption("Primary analysis: Local Streamlit workflow")
+
+    render_workflow_status(
+        [
+            {
+                "label": "Backend",
+                "is_active": backend_available and use_fastapi_backend,
+                "active_text": backend_status_label,
+                "inactive_text": backend_status_label,
+            }
+        ]
+    )
+    with st.expander("Backend details", expanded=False):
+        st.caption(f"Backend URL: {api_base_url}")
+        if isinstance(last_checked_at, datetime):
+            st.caption(f"Last checked: {last_checked_at.strftime('%H:%M:%S')}")
+        if backend_ready and backend_ready.get("checks"):
             st.json(backend_ready.get("checks", {}))
 
     st.markdown("---")
     st.markdown("### Database Logging")
     enable_database_logging = st.toggle(
-        "Save analysis summary to local database",
+        "Save analysis summary",
         value=settings.save_analysis_default,
-        help="Saves scores, labels, and review metadata only. Full resume text and full job descriptions are not stored.",
+        help="Stores review summary metadata locally.",
     )
     if enable_database_logging:
+        st.caption("Database logging is on.")
         render_recent_analysis_history()
     else:
-        st.caption("Database logging is optional. Local analysis works without saved history.")
+        st.caption("Database logging is off.")
 
     st.markdown("---")
     input_status_slot = st.container()
@@ -2359,13 +2361,16 @@ with st.sidebar:
                 <strong>Decision-support signal</strong>
             </div>
             <div class="subtle">
-                Very high validation results should be reviewed for possible data leakage,
-                small validation split, class imbalance, or overfitting before production use.
+                High validation results require review before production use.
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
+    with st.expander("Why review is needed", expanded=False):
+        st.caption(
+            "Very high validation accuracy can indicate data leakage, small validation split, class imbalance, or overfitting."
+        )
     if clean_classes:
         with st.expander("Supported role labels", expanded=False):
             st.caption(", ".join(clean_classes))
@@ -2374,10 +2379,12 @@ with st.sidebar:
     st.markdown("### Workflow Guide")
     st.markdown(
         """
-        <div class="subtle">
-        1. Upload resume<br>
-        2. Add job description<br>
-        3. Review overview, quality, match, and recruiter workspace
+        <div class="panel-card">
+            <div class="subtle">
+                1. Upload resume<br>
+                2. Add job description<br>
+                3. Review overview, quality, match, and recruiter workspace
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -2389,11 +2396,8 @@ with st.sidebar:
         st.markdown("**Deployment metadata**")
         st.markdown(f"**Version:** {version_info['app_version']}")
         st.markdown(f"**Stage:** {version_info['app_stage']}")
-        st.markdown(f"**Build:** {version_info['build_label']}")
         st.markdown(f"**Environment:** {version_info['deployment_env']}")
-        st.markdown(f"**Git commit:** {version_info['git_commit']}")
-        st.markdown("**Local run command**")
-        st.code("streamlit run app.py --server.fileWatcherType none", language="bash")
+        st.markdown(f"**Commit:** {version_info['git_commit']}")
 
 primary_analysis_badge = (
     "Local workflow + API snapshot"
@@ -2517,22 +2521,28 @@ with input_status_slot:
     render_workflow_status(
         [
             {
-                "label": "Resume uploaded",
+                "label": "Resume",
                 "is_active": uploaded_file is not None,
-                "active_text": "Yes",
-                "inactive_text": "No",
+                "active_text": "Uploaded",
+                "inactive_text": "Needed",
             },
             {
-                "label": "JD added",
+                "label": "JD",
                 "is_active": bool(job_description.strip()),
-                "active_text": "Yes",
-                "inactive_text": "No",
+                "active_text": "Provided",
+                "inactive_text": "Needed",
             },
             {
-                "label": "Batch files ready",
+                "label": "Batch",
                 "is_active": len(st.session_state.get("batch_file_store", [])) > 0,
-                "active_text": str(len(st.session_state.get("batch_file_store", []))),
+                "active_text": "Available",
                 "inactive_text": "0",
+            },
+            {
+                "label": "Privacy",
+                "is_active": privacy_mode,
+                "active_text": "On",
+                "inactive_text": "Off",
             },
         ]
     )
