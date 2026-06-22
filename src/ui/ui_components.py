@@ -18,55 +18,65 @@ def _format_score(score) -> str:
     return text if text else "N/A"
 
 
-def render_hero() -> None:
+def _render_hero_markup(primary_analysis_badge: str) -> str:
     badges = [
-        "ATS Compatibility Estimate",
-        "Skill Gap Analysis",
-        "Writing Quality Review",
-        "Rewrite Suggestions",
-        "Job Matching",
-        "Decision-Support Signals",
+        primary_analysis_badge,
+        "ATS + JD Match",
+        "Semantic Signals",
+        "Recruiter Workflow",
+        "Privacy-aware Review",
     ]
     badge_markup = "".join(f'<span class="hero-chip">{escape(badge)}</span>' for badge in badges)
-    st.markdown(
-        f"""
-        <div class="resumeiq-hero">
-            <div class="resumeiq-kicker">Resume Intelligence Dashboard</div>
-            <h1 class="resumeiq-title">ResumeIQ</h1>
-            <div class="resumeiq-subtitle">AI Resume Intelligence &amp; Job Application Assistant</div>
-            <div class="resumeiq-description">
-                Analyze resumes, compare against job descriptions, review candidate fit, and prepare
-                recruiter-ready insights using privacy-aware decision-support workflows.
+
+    return f"""
+    <div class="resumeiq-hero">
+        <div class="resumeiq-hero-grid">
+            <div>
+                <div class="resumeiq-kicker">Resume Intelligence Platform</div>
+                <h1 class="resumeiq-title">ResumeIQ</h1>
+                <div class="resumeiq-subtitle">AI-powered resume analysis for job-fit, ATS quality, and recruiter review.</div>
+                <div class="resumeiq-description">
+                    Upload a resume, compare it with a target job description, and review practical
+                    decision-support signals: predicted role, ATS readiness, skill gaps, writing quality,
+                    semantic match, and recruiter-ready notes.
+                </div>
+                <div class="badge-row">{badge_markup}</div>
+                <div class="hero-disclaimer">Decision-support tool. Human review required.</div>
             </div>
-            <div class="badge-row">{badge_markup}</div>
+            <div class="resumeiq-hero-panel">
+                <div class="hero-panel-title">Current product mode</div>
+                <div class="hero-panel-row">
+                    <span class="hero-panel-label">Frontend</span>
+                    <span class="hero-panel-value">Streamlit</span>
+                </div>
+                <div class="hero-panel-row">
+                    <span class="hero-panel-label">Analysis engine</span>
+                    <span class="hero-panel-value">Local ML/NLP</span>
+                </div>
+                <div class="hero-panel-row">
+                    <span class="hero-panel-label">Backend path</span>
+                    <span class="hero-panel-value">FastAPI-ready</span>
+                </div>
+                <div class="hero-panel-row">
+                    <span class="hero-panel-label">Upgrade stage</span>
+                    <span class="hero-panel-value">Step 4A UI</span>
+                </div>
+            </div>
         </div>
-        """,
+    </div>
+    """
+
+
+def render_hero() -> None:
+    st.markdown(
+        _render_hero_markup("Local analysis currently active"),
         unsafe_allow_html=True,
     )
 
 
 def render_page_header(primary_analysis_badge: str = "Local analysis currently active") -> None:
-    badges = [
-        primary_analysis_badge,
-        "Decision-support signal",
-        "Recruiter-ready insights",
-        "Privacy-safe mode available",
-    ]
-    badge_markup = "".join(f'<span class="hero-chip">{escape(badge)}</span>' for badge in badges)
     st.markdown(
-        f"""
-        <div class="resumeiq-hero">
-            <div class="resumeiq-kicker">Resume Intelligence Dashboard</div>
-            <h1 class="resumeiq-title">ResumeIQ</h1>
-            <div class="resumeiq-subtitle">AI Resume Intelligence &amp; Job Application Assistant</div>
-            <div class="resumeiq-description">
-                Analyze resumes, compare against job descriptions, review candidate fit, and prepare
-                recruiter-ready insights using local decision-support workflows.
-            </div>
-            <div class="badge-row">{badge_markup}</div>
-            <div class="hero-disclaimer">Decision-support tool. Human review required.</div>
-        </div>
-        """,
+        _render_hero_markup(primary_analysis_badge),
         unsafe_allow_html=True,
     )
 
