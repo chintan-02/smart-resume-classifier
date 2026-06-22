@@ -20,11 +20,10 @@ def _format_score(score) -> str:
 
 def _render_hero_markup(primary_analysis_badge: str) -> str:
     badges = [
-        primary_analysis_badge,
-        "ATS + JD Match",
-        "Semantic Signals",
-        "Recruiter Workflow",
-        "Privacy-aware Review",
+        "ATS Review",
+        "JD Match",
+        "Resume Improvement",
+        "Recruiter Evidence",
     ]
     badge_markup = "".join(f'<span class="hero-chip">{escape(badge)}</span>' for badge in badges)
 
@@ -56,10 +55,6 @@ def _render_hero_markup(primary_analysis_badge: str) -> str:
                 <div class="hero-panel-row">
                     <span class="hero-panel-label">Backend path</span>
                     <span class="hero-panel-value">FastAPI-ready</span>
-                </div>
-                <div class="hero-panel-row">
-                    <span class="hero-panel-label">Upgrade stage</span>
-                    <span class="hero-panel-value">Step 4A UI</span>
                 </div>
             </div>
         </div>

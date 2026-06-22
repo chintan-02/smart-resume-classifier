@@ -2550,8 +2550,7 @@ render_page_header(primary_analysis_badge=primary_analysis_badge)
 top_left, top_right = st.columns([1.18, 0.82], gap="large")
 
 with top_left:
-    st.markdown('<div class="input-card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-label">1) Upload resume</div>', unsafe_allow_html=True)
+    render_section_title("1) Upload resume", "Upload a PDF, DOCX, or TXT resume for analysis.")
     main_uploaded_files = st.file_uploader(
         "Upload one or more resumes in PDF, TXT, or DOCX format",
         type=SUPPORTED_FILE_TYPES,
@@ -2569,11 +2568,12 @@ with top_left:
             "analysis. All uploaded resumes are available for Batch Ranking."
         )
     st.caption("Best results come from text-based PDFs or DOCX files rather than scanned-image PDFs.")
-    st.markdown("</div>", unsafe_allow_html=True)
 
     default_jd = load_sample_jd() if use_sample_jd else ""
-    st.markdown('<div class="input-card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-label">2) Paste job description</div>', unsafe_allow_html=True)
+    render_section_title(
+        "2) Paste job description",
+        "Add the target role description so ResumeIQ can compare skills, keywords, and role fit.",
+    )
     job_description = st.text_area(
         "Paste job description",
         value=default_jd,
@@ -2581,7 +2581,6 @@ with top_left:
         label_visibility="collapsed",
         placeholder="Paste a Data Scientist / ML Engineer / Analyst job description here...",
     )
-    st.markdown("</div>", unsafe_allow_html=True)
 
     render_section_title("Input Status")
     render_workflow_status(
