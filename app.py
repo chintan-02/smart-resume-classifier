@@ -333,10 +333,14 @@ def build_summary_insight(predicted_role, match_score, matched_count, missing_co
         fit = "limited"
 
     return (
-        f"This resume is currently classified as **{predicted_role}** and shows a **{fit} fit** "
-        f"for the provided job description. It matches **{matched_count}** relevant skills "
-        f"while missing **{missing_count}** target skills."
+        f"This resume is currently classified as {predicted_role} and shows a {fit} fit "
+        f"for the provided job description. It matches {matched_count} relevant skills "
+        f"while missing {missing_count} target skills."
     )
+
+
+def _render_limited_badges(items, limit: int = 10) -> None:
+    render_badge_group(list(items or [])[:limit])
 
 
 def render_analysis_overview(
@@ -351,7 +355,7 @@ def render_analysis_overview(
 ) -> None:
     render_section_title(
         "Candidate Snapshot",
-        "A recruiter-style summary of the current resume, model output, and job alignment signals.",
+        "Quick view of role prediction, ATS score, and job alignment.",
     )
     c1, c2, c3, c4 = st.columns(4, gap="medium")
     with c1:
@@ -366,6 +370,7 @@ def render_analysis_overview(
     st.markdown(
         f"""
         <div class="insight-box">
+            <strong>Primary takeaway</strong><br>
             {build_summary_insight(predicted_role, match_score, matched_count, missing_count)}
         </div>
         """,
@@ -382,7 +387,7 @@ def render_analysis_overview(
         ]
         if ats_result.get("grade"):
             highlights.append(f"ATS grade: {ats_result.get('grade')}")
-        for item in highlights:
+        for item in highlights[:4]:
             st.markdown(f"- {item}")
 
     with right:
@@ -390,17 +395,17 @@ def render_analysis_overview(
         risks = []
         missing_skills = gap.get("missing", []) if isinstance(gap, dict) else []
         if missing_skills:
-            risks.append("Missing target skills: " + ", ".join(missing_skills[:8]))
+            risks.append("Missing target skills: " + ", ".join(missing_skills[:4]))
         if match_score < 0.35:
-            risks.append("Job-description skill overlap is currently limited.")
+            risks.append("Limited JD skill overlap.")
         if ats_result.get("ats_score", 0) < 50:
-            risks.append("ATS compatibility needs stronger structure, keywords, or evidence.")
+            risks.append("ATS score needs stronger structure or evidence.")
         if not risks:
             risks.append("No major job-match risks detected from the available signals.")
-        for item in risks:
+        for item in risks[:4]:
             st.markdown(f"- {item}")
 
-    render_section_title("Decision-Support Interpretation")
+    render_section_title("Recommended Next Action")
     if match_score >= 0.65:
         render_alert_banner(get_match_feedback(match_score), "success")
     elif match_score >= 0.35:
@@ -408,7 +413,6 @@ def render_analysis_overview(
     else:
         render_alert_banner(get_match_feedback(match_score), "warning")
 
-    render_section_title("Recommended Next Step")
     if missing_count > 0:
         st.write("Focus resume improvements on relevant missing skills and tailor project descriptions around the target role.")
     else:
@@ -431,7 +435,7 @@ def render_backend_analysis_snapshot(api_result: dict | None) -> None:
     data = api_result.get("data") or {}
     render_section_title(
         "Backend Analysis Snapshot",
-        "Compact FastAPI response shown alongside the full local Streamlit analysis.",
+        "FastAPI response summary.",
     )
 
     if not api_result.get("success"):
@@ -465,11 +469,11 @@ def render_backend_analysis_snapshot(api_result: dict | None) -> None:
     priority_actions = data.get("priority_actions", [])
     if priority_actions:
         render_section_title("Backend Priority Actions")
-        for action in priority_actions[:5]:
+        for action in priority_actions[:4]:
             st.markdown(f"- {action}")
 
     if data.get("disclaimer"):
-        render_alert_banner(data.get("disclaimer"), "info")
+        st.caption(data.get("disclaimer"))
 
 
 def _normalize_db_score(value):
@@ -645,8 +649,19 @@ def render_resume_improvement_report(report: dict) -> None:
 def render_candidate_fit_section(candidate_fit_result: dict, role_profile_summary: dict | None = None) -> None:
     render_section_title(
         "Multi-Score Candidate Fit",
-        "An explainable local estimate that combines resume, job-description, ATS, quality, and model signals.",
+        "Local fit estimate across resume, JD, ATS, quality, and model signals.",
     )
+
+    cards = get_candidate_fit_summary_cards(candidate_fit_result)
+    card_columns = st.columns(len(cards), gap="medium")
+    for column, card in zip(card_columns, cards):
+        with column:
+            render_metric_card(
+                card.get("title", ""),
+                card.get("value", ""),
+                card.get("helper_text", ""),
+            )
+
     st.write(candidate_fit_result.get("summary", ""))
 
     if role_profile_summary:
@@ -673,42 +688,33 @@ def render_candidate_fit_section(candidate_fit_result: dict, role_profile_summar
             "info",
         )
 
-    cards = get_candidate_fit_summary_cards(candidate_fit_result)
-    card_columns = st.columns(len(cards), gap="medium")
-    for column, card in zip(card_columns, cards):
-        with column:
-            render_metric_card(
-                card.get("title", ""),
-                card.get("value", ""),
-                card.get("helper_text", ""),
-            )
-
     component_scores = candidate_fit_result.get("component_scores", [])
     if component_scores:
         component_df = pd.DataFrame(component_scores)
         component_df["weight"] = component_df["weight"].apply(lambda value: f"{value:.0%}")
-        st.dataframe(component_df, width="stretch", hide_index=True)
+        with st.expander("View scoring components", expanded=False):
+            st.dataframe(component_df, width="stretch", hide_index=True)
 
     strengths_col, risks_col = st.columns(2, gap="large")
     with strengths_col:
         render_section_title("Strong Fit Signals")
-        for signal in candidate_fit_result.get("strength_signals", []):
+        for signal in candidate_fit_result.get("strength_signals", [])[:4]:
             st.markdown(f"- {signal}")
 
     with risks_col:
         render_section_title("Risk Signals")
         risks = candidate_fit_result.get("risk_signals", [])
         if risks:
-            for risk in risks:
+            for risk in risks[:4]:
                 st.markdown(f"- {risk}")
         else:
             st.write("No major risk signals detected from the available fit components.")
 
     render_section_title("Priority Actions")
-    for action in candidate_fit_result.get("priority_actions", []):
+    for action in candidate_fit_result.get("priority_actions", [])[:4]:
         st.markdown(f"- {action}")
 
-    render_alert_banner(candidate_fit_result.get("disclaimer", ""), "info")
+    st.caption(candidate_fit_result.get("disclaimer", ""))
 
 
 def render_recruiter_workflow_section(ranked_rows: list[dict], privacy_mode: bool = False) -> None:
@@ -1167,7 +1173,7 @@ def render_batch_ranking_section(
 
 
 def render_ats_section(ats_result: dict, has_job_description: bool) -> None:
-    render_section_title("ATS Compatibility Estimate", "Structure, keyword coverage, skill overlap, and role alignment.")
+    render_section_title("ATS Compatibility Estimate", "Estimated ATS readiness for this job description.")
 
     if not has_job_description:
         render_alert_banner("Paste a job description to unlock ATS, semantic match, and job-fit insights.", "info")
@@ -1181,7 +1187,7 @@ def render_ats_section(ats_result: dict, has_job_description: bool) -> None:
             helper_text="Estimated compatibility signal",
         )
     with grade_col:
-        render_metric_card("Grade", ats_result.get("grade", "N/A"), "Structure, keywords, skills, and alignment")
+        render_metric_card("Grade", ats_result.get("grade", "N/A"), "Overall ATS-style signal")
 
     st.write(ats_result.get("feedback", ""))
 
@@ -1219,7 +1225,10 @@ def render_ats_section(ats_result: dict, has_job_description: bool) -> None:
             else:
                 st.write("No major improvement suggestions detected.")
 
-    st.caption(ats_result.get("disclaimer", ""))
+    if ats_result.get("disclaimer"):
+        st.caption("Estimate only; not an official ATS platform score.")
+        with st.expander("View ATS estimate note", expanded=False):
+            st.write(ats_result.get("disclaimer", ""))
 
 
 def render_sentence_quality_section(sentence_quality_result: dict) -> None:
@@ -1344,7 +1353,7 @@ def render_structure_advisor(advice: dict) -> None:
 def render_skill_taxonomy_breakdown(taxonomy_result: dict) -> None:
     render_section_title(
         "Skill Taxonomy Breakdown",
-        "Category-level skill intelligence for understanding alignment with the target role.",
+        "Category-level strengths and gaps.",
     )
     summary = get_skill_taxonomy_summary(taxonomy_result)
     category_summary = taxonomy_result.get("category_summary", [])
@@ -1382,27 +1391,35 @@ def render_skill_taxonomy_breakdown(taxonomy_result: dict) -> None:
             "Categories with missing skills",
         )
 
-    render_alert_banner(summary.get("top_strength_message", ""), "info")
-    render_alert_banner(summary.get("top_gap_message", ""), "warning")
+    top_cols = st.columns(2, gap="large")
+    with top_cols[0]:
+        render_section_title("Top Strength Categories")
+        render_badge_group(taxonomy_result.get("top_strength_categories", []))
+        st.caption(summary.get("top_strength_message", ""))
+    with top_cols[1]:
+        render_section_title("Top Gap Categories")
+        render_badge_group(taxonomy_result.get("top_gap_categories", []))
+        st.caption(summary.get("top_gap_message", ""))
 
-    st.markdown("##### Category summary")
-    st.dataframe(pd.DataFrame(category_summary), width="stretch", hide_index=True)
+    with st.expander("View category summary", expanded=False):
+        st.dataframe(pd.DataFrame(category_summary), width="stretch", hide_index=True)
 
-    categorized_cols = st.columns(3, gap="large")
-    categorized_groups = [
-        ("Categorized Resume Skills", taxonomy_result.get("resume_categories", {})),
-        ("Categorized Matched Skills", taxonomy_result.get("matched_categories", {})),
-        ("Categorized Missing Skills", taxonomy_result.get("missing_categories", {})),
-    ]
-    for column, (title, categories) in zip(categorized_cols, categorized_groups):
-        with column:
-            render_section_title(title)
-            if not categories:
-                st.write("None detected.")
-                continue
-            for category, skills in categories.items():
-                st.markdown(f"##### {category}")
-                render_badge_group(skills)
+    with st.expander("View categorized skill details", expanded=False):
+        categorized_cols = st.columns(3, gap="large")
+        categorized_groups = [
+            ("Categorized Resume Skills", taxonomy_result.get("resume_categories", {})),
+            ("Categorized Matched Skills", taxonomy_result.get("matched_categories", {})),
+            ("Categorized Missing Skills", taxonomy_result.get("missing_categories", {})),
+        ]
+        for column, (title, categories) in zip(categorized_cols, categorized_groups):
+            with column:
+                render_section_title(title)
+                if not categories:
+                    st.write("None detected.")
+                    continue
+                for category, skills in categories.items():
+                    st.markdown(f"##### {category}")
+                    render_badge_group(skills)
 
     if taxonomy_result.get("top_gap_categories"):
         render_alert_banner("Add missing skills only if they reflect your real experience.", "info")
@@ -1413,7 +1430,7 @@ def render_semantic_match_section(semantic_result: dict, privacy_mode: bool = Fa
 
     render_section_title(
         "Semantic JD-Resume Match",
-        "Meaning-based similarity between the resume and target job description.",
+        "Meaning-based resume and job-description alignment.",
     )
 
     if not semantic_result.get("available"):
@@ -1444,8 +1461,8 @@ def render_semantic_match_section(semantic_result: dict, privacy_mode: bool = Fa
     top_pairs = semantic_result.get("top_matching_pairs", [])
     if top_pairs:
         render_section_title("Top Matching Pairs")
-        for index, pair in enumerate(top_pairs, start=1):
-            with st.expander(f"{index}. Similarity {pair.get('similarity', 0)}", expanded=index == 1):
+        for index, pair in enumerate(top_pairs[:3], start=1):
+            with st.expander(f"{index}. Similarity {pair.get('similarity', 0)}", expanded=False):
                 st.markdown("##### Resume evidence")
                 resume_chunk = pair.get("resume_chunk", "")
                 if privacy_mode:
@@ -1453,16 +1470,31 @@ def render_semantic_match_section(semantic_result: dict, privacy_mode: bool = Fa
                 st.write(resume_chunk)
                 st.markdown("##### Job description requirement")
                 st.write(pair.get("jd_chunk", ""))
+        if len(top_pairs) > 3:
+            with st.expander("View all matching pairs", expanded=False):
+                for index, pair in enumerate(top_pairs, start=1):
+                    st.markdown(f"##### {index}. Similarity {pair.get('similarity', 0)}")
+                    resume_chunk = pair.get("resume_chunk", "")
+                    if privacy_mode:
+                        resume_chunk = mask_pii(resume_chunk, candidate_name=candidate_name)
+                    st.write(resume_chunk)
+                    st.write(pair.get("jd_chunk", ""))
 
     weak_chunks = semantic_result.get("weak_jd_chunks", [])
     if weak_chunks:
         render_section_title("Weak JD Coverage Areas")
-        for index, item in enumerate(weak_chunks, start=1):
+        for index, item in enumerate(weak_chunks[:3], start=1):
             with st.expander(f"{index}. Closest similarity {item.get('best_similarity', 0)}", expanded=False):
                 st.markdown("##### JD requirement")
                 st.write(item.get("jd_chunk", ""))
                 st.markdown("##### Recommendation")
                 st.write(item.get("recommendation", ""))
+        if len(weak_chunks) > 3:
+            with st.expander("View all weak coverage areas", expanded=False):
+                for index, item in enumerate(weak_chunks, start=1):
+                    st.markdown(f"##### {index}. Closest similarity {item.get('best_similarity', 0)}")
+                    st.write(item.get("jd_chunk", ""))
+                    st.write(item.get("recommendation", ""))
     else:
         render_alert_banner("No weak JD chunks detected by semantic matching.", "success")
 
@@ -1470,7 +1502,7 @@ def render_semantic_match_section(semantic_result: dict, privacy_mode: bool = Fa
 
 
 def render_jd_keyword_match_section(match_score, matched_count, missing_count, gap) -> None:
-    render_section_title("JD Keyword Match", "Skill overlap between the resume and target job description.")
+    render_section_title("JD Keyword Match", "Resume and job-description skill overlap.")
 
     jm1, jm2, jm3 = st.columns(3, gap="medium")
     with jm1:
@@ -1480,35 +1512,56 @@ def render_jd_keyword_match_section(match_score, matched_count, missing_count, g
     with jm3:
         render_metric_card("Missing Skills", missing_count, "JD skills not detected in resume")
 
+    matched_skills = gap.get("matched", [])
+    missing_skills = gap.get("missing", [])
+
     st.markdown("##### Matched skills")
-    render_badge_group(gap.get("matched", []))
+    _render_limited_badges(matched_skills, limit=10)
+    if len(matched_skills) > 10:
+        with st.expander("View all matched skills", expanded=False):
+            render_badge_group(matched_skills)
+
     st.markdown("##### Missing skills")
-    render_badge_group(gap.get("missing", []))
+    _render_limited_badges(missing_skills, limit=10)
+    if len(missing_skills) > 10:
+        with st.expander("View all missing skills", expanded=False):
+            render_badge_group(missing_skills)
 
 
 def render_skills_intelligence_section(resume_skills, gap, role_profile_summary, skill_taxonomy_result) -> None:
     render_section_title(
         "Skills Intelligence",
-        "Extracted resume skills, target-job overlap, missing skills, and role-specific skill categories.",
+        "Top skills, target-role gaps, and category-level evidence.",
     )
     if role_profile_summary.get("priority_categories"):
-        st.write("Priority categories for this role:")
+        render_section_title("Priority Categories")
         render_badge_group(role_profile_summary.get("priority_categories", []))
 
     skill_cols = st.columns(2, gap="large")
     with skill_cols[0]:
-        st.markdown("##### Resume skills")
-        render_badge_group(resume_skills)
+        st.markdown("##### Top resume skills")
+        _render_limited_badges(resume_skills, limit=12)
 
         st.markdown("##### Matched skills")
-        render_badge_group(gap.get("matched", []))
+        _render_limited_badges(gap.get("matched", []), limit=10)
 
     with skill_cols[1]:
-        st.markdown("##### Missing skills")
-        render_badge_group(gap.get("missing", []))
+        st.markdown("##### Missing target skills")
+        _render_limited_badges(gap.get("missing", []), limit=10)
 
         st.markdown("##### Extra resume skills")
-        render_badge_group(gap.get("extra", []))
+        _render_limited_badges(gap.get("extra", []), limit=10)
+
+    long_skill_groups = [
+        ("View all extracted resume skills", resume_skills),
+        ("View all matched skills", gap.get("matched", [])),
+        ("View all missing skills", gap.get("missing", [])),
+        ("View all extra resume skills", gap.get("extra", [])),
+    ]
+    for title, skills in long_skill_groups:
+        if len(skills or []) > 10:
+            with st.expander(title, expanded=False):
+                render_badge_group(skills)
 
     render_skill_taxonomy_breakdown(skill_taxonomy_result)
 
